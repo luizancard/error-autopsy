@@ -1,4 +1,8 @@
+import os
 from datetime import datetime
+
+from dotenv import load_dotenv
+from google import genai
 
 import analytics as anl
 import database as db
@@ -6,6 +10,15 @@ import database as db
 BOLD = "\033[1m"
 RESET = "\033[0m"
 RED = "\033[91m"
+
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
+
+if api_key:
+    client = genai.Client(api_key=api_key)
+else:
+    client = None
+
 
 file_bank = "error_log.json"
 
@@ -84,7 +97,7 @@ def main():
         print("2. Exit")
         print("3. View error database")
         print("4. Delete database")
-        print("5. See Error Analysis")
+        print("5. Analytics Hub")
 
         option = input("Choose an option: ")
 
@@ -104,7 +117,23 @@ def main():
             else:
                 print("\nConfirmation incomplete. DataBase was NOT deleted")
         elif option == "5":
-            anl.create_analytics_dashboard(errors)
+            while True:
+                print("\nAnalytics Hub")
+                print("1. View Graphs")
+                print("2. Analyze my Patterns (AI)")
+                print("3. Generate Study Plan (AI)")
+                print("4. Back to the Main Menu")
+                sub_option = input("\nChoose analysis type: ")
+
+                if sub_option == "1":
+                    anl.create_graphs(errors)
+                if sub_option == "2":
+                    anl.analyze_patterns(errors)
+                elif sub_option == "4":
+                    break
+                else:
+                    print("Invalid option.")
+
         else:
             print("\nInvalid Option")
 
