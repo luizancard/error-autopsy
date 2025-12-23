@@ -127,8 +127,10 @@ def main():
 
                 if sub_option == "1":
                     anl.create_graphs(errors)
-                if sub_option == "2":
+                elif sub_option == "2":
                     anl.analyze_patterns(errors)
+                elif sub_option == "3":
+                    anl.study_plan(errors)
                 elif sub_option == "4":
                     break
                 else:

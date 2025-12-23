@@ -38,5 +38,8 @@ The best strategy to achieve top grades isn't just to study hard, but to study s
 2.Install Dependencies:
    pip install matplotlib google-genai python-dotenv
 3. Configure API Key:
-   • Get you free key at Google AI Studio
-   • Create a file with you key inside: GEMINI_API_KEY=your_api_key_here
+- Get you free key at Google AI Studio
+- Create a file with you key inside:
+   ```GEMINI_API_KEY=your_api_key_here
+4. Run the app:
+   ```python3 main.py
