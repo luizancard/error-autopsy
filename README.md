@@ -15,7 +15,7 @@ The best strategy to achieve top grades isn't just to study hard, but to study s
    5. Interpretation
 
 - **Data Persistence:** Uses local JSON storage to keep a historical log of performance.
-- **Analytics:** Generates reports showing error distribution.
+- **Analytics (in development):** Generates reports showing error distribution.
 
 ## Prerequisites
 - Python 3.10+
