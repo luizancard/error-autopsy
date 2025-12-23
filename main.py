@@ -33,14 +33,22 @@ error_types = {
 
 def register_error(error_list):
     try:
-        subject = input("\nEnter the subject: ")
-        topic = input("\nEnter the subject topic: ")
-        description = input("\nEnter a description (optional): ")
-        date = input("\nEnter the exam date (DD-MM-YYYY): ")
-        if date == "":
-            final_date = datetime.now(tz=None).strftime("%d-%m-%Y")
-        else:
-            final_date = date
+        subject = input("\nEnter the subject: ").strip()
+        topic = input("\nEnter the subject topic: ").strip()
+        description = input("\nEnter a description (optional): ").strip()
+
+        # Validate date input
+        while True:
+            date = input("\nEnter the exam date (DD-MM-YYYY): ").strip()
+            if date == "":
+                final_date = datetime.now(tz=None).strftime("%d-%m-%Y")
+                break
+            try:
+                datetime.strptime(date, "%d-%m-%Y")
+                final_date = date
+                break
+            except ValueError:
+                print("Invalid date format. Please use DD-MM-YYYY.")
 
         print("\nSelect the error type:")
 
@@ -94,35 +102,25 @@ def main():
     while True:
         print("\nError autopsy CLI")
         print("1. Log New Error")
-        print("2. Exit")
-        print("3. View error database")
+        print("2. View error database")
+        print("3. Analytics Hub")
         print("4. Delete database")
-        print("5. Analytics Hub")
+        print("5. Exit")
 
         option = input("Choose an option: ")
 
         if option == "1":
             register_error(errors)
         elif option == "2":
-            print("Goodbye!")
-            break
-        elif option == "3":
             view_database(errors)
-        elif option == "4":
-            del_confirmation = input(
-                '\nType "Confirm" to confirm you want to delete your previus DataBase: \n'
-            )
-            if del_confirmation == "Confirm":
-                db.delete_database(errors)
-            else:
-                print("\nConfirmation incomplete. DataBase was NOT deleted")
-        elif option == "5":
+        elif option == "3":
             while True:
                 print("\nAnalytics Hub")
                 print("1. View Graphs")
                 print("2. Analyze my Patterns (AI)")
                 print("3. Generate Study Plan (AI)")
-                print("4. Back to the Main Menu")
+                print("4. Quick Summary (text)")
+                print("5. Back to the Main Menu")
                 sub_option = input("\nChoose analysis type: ")
 
                 if sub_option == "1":
@@ -132,9 +130,23 @@ def main():
                 elif sub_option == "3":
                     anl.study_plan(errors)
                 elif sub_option == "4":
+                    anl.quick_summary(errors)
+                elif sub_option == "5":
                     break
                 else:
                     print("Invalid option.")
+
+        elif option == "4":
+            del_confirmation = input(
+                '\nType "Confirm" to confirm you want to delete your previus DataBase: \n'
+            )
+            if del_confirmation == "Confirm":
+                db.delete_database(errors)
+            else:
+                print("\nConfirmation incomplete. DataBase was NOT deleted")
+        elif option == "5":
+            print("Goodbye!")
+            break
 
         else:
             print("\nInvalid Option")

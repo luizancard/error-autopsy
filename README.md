@@ -32,14 +32,32 @@ The best strategy to achieve top grades isn't just to study hard, but to study s
 - **Environment Management:** Python Dotenv
 
 ## Installation
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/SEU_USUARIO/error-autopsy.git](https://github.com/SEU_USUARIO/error-autopsy.git)
-2.Install Dependencies:
-   pip install matplotlib google-genai python-dotenv
-3. Configure API Key:
-- Get you free key at Google AI Studio
-- Create a file with you key inside:
-   ```GEMINI_API_KEY=your_api_key_here
-4. Run the app:
-   ```python3 main.py
+1) Clone the repository
+```bash
+git clone https://github.com/SEU_USUARIO/error-autopsy.git
+cd error-autopsy
+```
+
+2) Create and activate a virtual environment (recommended)
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+3) Install dependencies
+```bash
+python -m pip install -r requirements.txt
+```
+Dependencies are listed in `requirements.txt` at the project root.
+
+4) Configure your API key
+- Get a free key at Google AI Studio.
+- Create a `.env` file in the project root:
+```bash
+echo "GEMINI_API_KEY=your_api_key_here" > .env
+```
+
+5) Run the app
+```bash
+python main.py
+```

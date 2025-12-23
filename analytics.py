@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from textwrap import shorten
 
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
@@ -37,7 +38,10 @@ def count_subjects(data):
 
     subject_counts = {}
     for subj in data:
-        subject = subj.get("subject", "Unknown")
+        raw_subject = subj.get("subject", "Unknown")
+        subject = raw_subject.strip() if isinstance(raw_subject, str) else "Unknown"
+        if not subject:
+            subject = "Unknown"
         subject_counts[subject] = subject_counts.get(subject, 0) + 1
     return subject_counts
 
@@ -49,7 +53,10 @@ def count_topics(data):
 
     topic_counts = {}
     for top in data:
-        topic = top.get("topic", "Unknown")
+        raw_topic = top.get("topic", "Unknown")
+        topic = raw_topic.strip() if isinstance(raw_topic, str) else "Unknown"
+        if not topic:
+            topic = "Unknown"
         topic_counts[topic] = topic_counts.get(topic, 0) + 1
     return topic_counts
 
@@ -60,15 +67,20 @@ def count_entries_by_month(data):
         return {}
 
     counts = {}
+    parse_error_logged = False
     for item in data:
         raw_date = item.get("date")  # sempre deve existir no seu fluxo
         try:
             dt = datetime.strptime(raw_date, "%d-%m-%Y")
             month_key = dt.strftime("%Y-%m")
         except (TypeError, ValueError):
+            parse_error_logged = True
             continue
 
         counts[month_key] = counts.get(month_key, 0) + 1
+
+    if parse_error_logged:
+        print("Warning: Some entries had invalid dates and were skipped.")
 
     return counts
 
@@ -78,6 +90,8 @@ def create_graphs(data):
     if not data:
         print("No data to visualize.")
         return
+
+    plt.style.use("seaborn-v0_8-whitegrid")
 
     # Coletar dados
     type_counts = count_error_types(data)
@@ -104,14 +118,21 @@ def create_graphs(data):
             ax.set_title(title, fontweight="bold")
             continue
 
-        labels = list(data_dict.keys())
+        raw_labels = list(data_dict.keys())
+        labels = [shorten(str(lbl), width=18, placeholder="...") for lbl in raw_labels]
         values = list(data_dict.values())
 
-        ax.bar(labels, values, color=color, edgecolor="black", alpha=0.7)
+        bars = ax.bar(labels, values, color=color, edgecolor="black", alpha=0.8)
         ax.set_title(title, fontweight="bold", fontsize=12)
         ax.set_ylabel("Count", fontsize=10)
-        ax.tick_params(axis="x", rotation=45, labelsize=9)
-        ax.grid(axis="y", alpha=0.3, linestyle="--")
+        ax.tick_params(axis="x", rotation=30, labelsize=9)
+        ax.grid(axis="y", alpha=0.35, linestyle="--")
+
+        # add bar labels and a bit of headroom
+        max_val = max(values) if values else 0
+        if max_val > 0:
+            ax.set_ylim(0, max_val * 1.2)
+        ax.bar_label(bars, fmt="%d", padding=3, fontsize=9)
 
     plt.tight_layout()  # ← Indentado (dentro da função)
     plt.savefig(
@@ -121,9 +142,39 @@ def create_graphs(data):
     plt.show()
 
 
+def quick_summary(data):
+    if not data:
+        print("\nNo data to summarize. Log errors first.")
+        return
+
+    type_counts = count_error_types(data)
+    subject_counts = count_subjects(data)
+    topic_counts = count_topics(data)
+    month_counts = count_entries_by_month(data)
+
+    def print_block(title, counts):
+        print(f"\n{title}:")
+        if not counts:
+            print("  (none)")
+            return
+        for k, v in sorted(counts.items(), key=lambda x: x[1], reverse=True):
+            print(f"  - {k}: {v}")
+
+    print("\n=== Quick Summary ===")
+    print_block("By Type", type_counts)
+    print_block("By Subject", subject_counts)
+    print_block("By Topic", topic_counts)
+    print_block("By Month", month_counts)
+    print("=====================\n")
+
+
 def analyze_patterns(data):
     if not client:
         print(f"\n{RED}API Key missing. Cannot use AI analysis.{RESET}")
+        return
+
+    if not data:
+        print("\nNo data to analyze yet. Log errors first.")
         return
 
     print("\nAI is analyzing your patterns...\n")
@@ -161,20 +212,15 @@ ADDITIONAL ANALYSIS REQUIREMENTS:
 
 OUTPUT FORMAT (Markdown):
 
-#Diagnosis:
+###THE DIAGNOSIS
+(Identify the #1 pattern holding the student back and provide a brief general analysis of the patterns.)
 
-(Identify the #1 pattern holding the student back BUT, also 
-do a general anylisis of the patterns analyzed. Be direct.)
+###THE NEUROSCIENCE
+(Explain in 1-2 sentences *why* this error happens. Use terms like 'Working Memory', 'Decision Fatigue', 'Encoding Failure', or 'Illusion of Competence'. Also state if the person is worse on a certain subject or topic or if they are well-rounded. Consider ALL the data provided.)
 
-#The Neuroscience: 
-
-(Explain in 1-2 sentences *why* this error happens. 
-Use terms like 'Working Memory', 'Decision Fatigue', 'Encoding Failure', or 'Illusion of Competence'. Also state if the person is worse on a certain subject or topic or if they are well-rounded. Consider ALL the data provided.)
-
-#The protocol:
-
-(Give 2 strict (separate them with a blank), actionable, high-level techniques to fix this. NO GENERIC ADVICE like "sleep more" or "read carefully".)
-(Examples of good advice: "Use the Feynman Technique," "Implement a Checklist for every question," "Do timed drills with 20% less time," "Mask the answers while reading.")
+### THE PROTOCOL
+(Give 2 strict, actionable, high-level techniques to fix this. NO GENERIC ADVICE like "sleep more" or "read carefully".)
+(Examples: "Use the Feynman Technique," "Implement a Checklist for every question," "Do timed drills with 20% less time," "Mask the answers while reading.")
 
 Be brutally honest, data-driven, and specific. Focus on the highest-leverage changes."""
 
@@ -204,13 +250,78 @@ def study_plan(data):
         print(f"\n{RED}API Key missing. Cannot use AI analysis.{RESET}")
         return
 
-    print("\nThe AI is designing your 3-Day Sprint...\n")
+    if not data:
+        print("\nNo data to analyze yet. Log errors first.")
+        return
+
+    print("\nThe AI is designing your study plan...\n")
+
+    # Optional exam targeting inputs
+    target_exam = (
+        input("Do you have an upcoming exam to target? (y/n): ").strip().lower()
+    )
+    days_until_exam = None
+    exam_subjects = []
+    exam_topics = []
+
+    if target_exam == "y":
+        raw_days = input("How many days until the exam? (number): ").strip()
+        try:
+            days_until_exam = int(raw_days) if raw_days else None
+        except ValueError:
+            days_until_exam = None
+        exam_subjects = [
+            s.strip()
+            for s in input("List subjects to be covered (comma-separated): ").split(",")
+            if s.strip()
+        ]
+        exam_topics = [
+            t.strip()
+            for t in input("List topics to be covered (comma-separated): ").split(",")
+            if t.strip()
+        ]
+
+        print("\nCaptured exam inputs:")
+        print("- Targeting exam: True")
+        print(f"- Days until exam: {days_until_exam}")
+        subjects_display = (
+            ", ".join([s.capitalize() for s in exam_subjects])
+            if exam_subjects
+            else "(none)"
+        )
+        topics_display = (
+            ", ".join([t.capitalize() for t in exam_topics])
+            if exam_topics
+            else "(none)"
+        )
+        print(f"- Exam subjects: {subjects_display}")
+        print(f"- Exam topics: {topics_display}")
+        print("\n\n Please wait, generating study plan... ")
+    else:
+        print("\nNo specific exam provided. \nCreating a general improvement plan...")
 
     subject_counts = count_subjects(data)
     topic_counts = count_topics(data)
     error_type_counts = count_error_types(data)
 
-    # Get top 3 weakest subjects and top 5 weakest topics
+    # recency weighting: last 30 days get highlighted
+    recent_window_days = 30
+    now = datetime.now()
+    recent_subjects = {}
+    recent_topics = {}
+    for item in data:
+        raw_date = item.get("date")
+        try:
+            dt = datetime.strptime(raw_date, "%d-%m-%Y")
+            if (now - dt).days <= recent_window_days:
+                subj = item.get("subject", "Unknown") or "Unknown"
+                top = item.get("topic", "Unknown") or "Unknown"
+                recent_subjects[subj] = recent_subjects.get(subj, 0) + 1
+                recent_topics[top] = recent_topics.get(top, 0) + 1
+        except Exception:
+            continue
+
+    # Get top 3 weakest subjects and top 5 weakest topics (overall)
     top_weak_subjects = dict(
         sorted(subject_counts.items(), key=lambda item: item[1], reverse=True)[:3]
     )
@@ -218,12 +329,24 @@ def study_plan(data):
         sorted(topic_counts.items(), key=lambda item: item[1], reverse=True)[:5]
     )
 
+    top_error_type = None
+    if error_type_counts:
+        top_error_type = max(error_type_counts.items(), key=lambda x: x[1])
+
     summary = {
         "total_errors": len(data),
         "priority_subjects": top_weak_subjects,
         "critical_topics": top_weak_topics,
         "error_types": error_type_counts,
+        "top_error_type": top_error_type,
         "timeline": count_entries_by_month(data),
+        "recent_subjects": recent_subjects,
+        "recent_topics": recent_topics,
+        "recent_window_days": recent_window_days,
+        "target_exam": target_exam == "y",
+        "days_until_exam": days_until_exam,
+        "exam_subjects": exam_subjects,
+        "exam_topics": exam_topics,
     }
 
     # Create the comprehensive prompt for Gemini
@@ -231,44 +354,49 @@ def study_plan(data):
 
 STUDENT DATA (Weakest Areas Based on Error Logs):
 - Total Errors Logged: {summary["total_errors"]}
-- Priority Subjects (most errors): {summary["priority_subjects"]}
-- Critical Topics (most errors): {summary["critical_topics"]}
+- Priority Subjects (most errors, highest weight): {summary["priority_subjects"]}
+- Critical Topics (most errors, highest weight): {summary["critical_topics"]}
 - Error Type Breakdown: {summary["error_types"]}
+- Top Error Type: {summary["top_error_type"]}
 - Timeline Pattern: {summary["timeline"]}
+- Recent emphasis (last {summary["recent_window_days"]} days): subjects {summary["recent_subjects"]}, topics {summary["recent_topics"]}
+
+EXAM CONTEXT (user-provided, if any):
+- Targeting specific upcoming exam: {summary["target_exam"]}
+- Days until exam: {summary["days_until_exam"]}
+- Exam subjects: {summary["exam_subjects"]}
+- Exam topics: {summary["exam_topics"]}
 
 TASK:
-Design a high-intensity "72-Hour Recovery Sprint" to fix these specific gaps based on the actual data provided.
+Design a customized study plan that prioritizes SUBJECTS and TOPICS above all else, and gives extra weight to the most recent errors. If an upcoming exam is specified, tailor the plan to the remaining days. If no exam is specified, provide a general improvement plan.
 
 RULES:
 1. NO PASSIVE STUDYING. Do not suggest "reading notes" or "watching videos" unless followed immediately by a test.
-2. ACTIVE RECALL ONLY. Suggest techniques like: "Blurting", "Feynman Technique", "Timed Drills", "Reverse Engineering Questions", "Past Paper Analysis".
-3. BE SPECIFIC. Reference the exact subjects and topics from the input data.
-4. DATA-DRIVEN. If error types show "Content Gap", focus on retrieval practice. If "Attention/Interpretation", focus on exam protocols. If "Time Management", focus on triage drills.
+2. ACTIVE RECALL ONLY. Techniques: "Blurting", "Feynman Technique", "Timed Drills", "Reverse Engineering Questions", "Past Paper Analysis".
+3. HEAVY WEIGHT ON SUBJECTS/TOPICS. Always anchor tasks to the listed subjects and topics; they have the highest priority.
+4. RECENCY PRIORITY. Errors closer to today (last {summary["recent_window_days"]} days) should get extra attention.
+5. TIME MANAGEMENT TRIAGE. If Time management is the top error type, include aggressive triage protocols (90-second scan, tag easy/medium/hard, enforced skips/returns, timeboxes).
+6. FLEXIBLE DURATION. If days_until_exam is provided, create a day-by-day plan up to that date. Otherwise, propose a repeatable weekly cycle.
 
 OUTPUT FORMAT (Markdown):
 
-#Objective:
-(1-2 sentences on what needs to be fixed based on the specific data patterns).
+###OBJECTIVE
+(1-2 sentences on what needs to be fixed, prioritizing subjects/topics and recent errors. If an exam is provided, mention the goal relative to the exam date.)
 
-#The 72-hour protocol
+###PLAN STRUCTURE
+- If days_until_exam provided: outline the day-by-day arc until the exam, with heavier focus on listed subjects/topics and recent weak areas.
+- If no exam: propose a 5-7 day repeatable loop balancing retrieval, drills, and simulation.
 
-**DAY 1: DIAGNOSIS & PATCHING (The "Feynman" Day)**
-- (Specific actionable task for the #1 weakest subject with exact topic names)
-- (Active recall technique for the #2 weakest area)
-- (Self-testing protocol)
+###DAILY / SESSION BLOCKS
+- (Concrete blocks anchored to the specific subjects/topics above; include timed drills, interleaving, and self-testing.)
+- (If Time management is top error type, embed triage drills and strict timing.)
 
-**DAY 2: GRIND & APPLICATION (The "Drill" Day)**
-- (Specific timed practice instruction with subjects/topics from data)
-- (Interleaving task mixing the weak subjects)
-- (Error analysis checkpoint)
+###SIMULATION & REVIEW
+- (Exam-mode simulations if days_until_exam is given; otherwise weekly mock sets.)
+- (Error logging + rapid post-mortem instructions.)
 
-**DAY 3: SIMULATION (The "Exam" Day)**
-- (Full simulation instructions mimicking real exam conditions)
-- (Triage protocol if time management is an issue)
-- (Post-exam error logging and pattern review)
-
-#Success metrics: 
-- (2-3 concrete ways to measure if the sprint worked)
+###SUCCESS METRICS
+- (2-3 measurable checks: e.g., accuracy on targeted topics, time-per-question, retrieval success rate.)
 
 Keep it strict, actionable, and data-specific. Max 500 words."""
 
@@ -279,15 +407,15 @@ Keep it strict, actionable, and data-specific. Max 500 words."""
             contents=prompt,
             config={
                 "temperature": 0.6,  # Balanced for structured planning
-                "max_output_tokens": 3000,  # Enough for detailed 3-day plan
+                "max_output_tokens": 3200,  # Enough for detailed plan
                 "top_p": 0.9,
                 "top_k": 40,
             },
         )
 
-        print("\n" + "=" * 80)
+        print("\n" + "-" * 80)
         print(response.text)
-        print("=" * 80 + "\n")
+        print("-" * 80 + "\n")
 
     except Exception as e:
         print(f"\n{RED}Error calling Gemini API: {e}{RESET}")
