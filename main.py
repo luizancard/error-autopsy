@@ -1,6 +1,7 @@
-import json
-import os
 from datetime import datetime
+
+import analytics as anl
+import database as db
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
@@ -15,21 +16,6 @@ error_types = {
     "4": "Fatigue",
     "5": "Interpretation",
 }
-
-
-def load_data():
-    if not os.path.exists(file_bank):  # in case the file does not exist
-        return []
-    with open(
-        file_bank, "r", encoding="utf-8"
-    ) as file:  # reading file (accepts accents)
-        return json.load(file)
-
-
-def save_data(data):
-    with open(file_bank, "w", encoding="utf-8") as file:
-        json.dump(data, file, indent=4)
-    print("\nSaved succesfully!")
 
 
 def register_error(error_list):
@@ -66,7 +52,7 @@ def register_error(error_list):
         }
         # adding list and
         error_list.append(new_error)
-        save_data(error_list)
+        db.save_data(error_list)
 
     except ValueError:
         print("\nInvalid Input")
@@ -89,15 +75,8 @@ def view_database(data):
         print("-" * 97 + "\n")
 
 
-def delete_database(data):
-    with open(file_bank, "w", encoding="utf-8") as file:
-        json.dump([], file)
-        data.clear()
-    print("\nDataBase deleted successfully!")
-
-
 def main():
-    errors = load_data()
+    errors = db.load_data()
 
     while True:
         print("\nError autopsy CLI")
@@ -105,6 +84,7 @@ def main():
         print("2. Exit")
         print("3. View error database")
         print("4. Delete database")
+        print("5. See Error Analysis")
 
         option = input("Choose an option: ")
 
@@ -120,9 +100,11 @@ def main():
                 '\nType "Confirm" to confirm you want to delete your previus DataBase: \n'
             )
             if del_confirmation == "Confirm":
-                delete_database(errors)
+                db.delete_database(errors)
             else:
                 print("\nConfirmation incomplete. DataBase was NOT deleted")
+        elif option == "5":
+            anl.create_analytics_dashboard(errors)
         else:
             print("\nInvalid Option")
 
