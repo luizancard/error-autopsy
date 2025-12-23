@@ -177,8 +177,6 @@ def analyze_patterns(data):
         print("\nNo data to analyze yet. Log errors first.")
         return
 
-    print("\nAI is analyzing your patterns...\n")
-
     summary = {
         "total_errors": len(data),
         "distribution_by_type": count_error_types(data),
@@ -225,13 +223,14 @@ OUTPUT FORMAT (Markdown):
 Be brutally honest, data-driven, and specific. Focus on the highest-leverage changes."""
 
     try:
+        print("\nPlease wait, generating the analisis...\n")
         # Configure Gemini API with optimal settings
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config={
                 "temperature": 0.5,  # Lower for more focused, detailed analysis
-                "max_output_tokens": 4000,  # Much more space for comprehensive output
+                "max_output_tokens": 3000,  # Much more space for comprehensive output
                 "top_p": 0.9,
                 "top_k": 40,
             },
@@ -253,8 +252,6 @@ def study_plan(data):
     if not data:
         print("\nNo data to analyze yet. Log errors first.")
         return
-
-    print("\nThe AI is designing your study plan...\n")
 
     # Optional exam targeting inputs
     target_exam = (
