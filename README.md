@@ -1,25 +1,26 @@
-# Error autopsy CLI
-> A tool for high-performance students to analyse exam error, understand their own patterns and optimize study routines
+# Error Autopsy CLI
+> A tool for high-performance students to analyze exam errors, understand their own patterns, and optimize study routines.
 
-# Why?
-The best stratedy to achieve top grades isn't just to study hard, but to study smart and optimize your time.
- **Error autopsy** is a command-line interface (CLI) tool design to track, categorize, and analyze mistkaes made in mock exams
-By shifting the focus form the score you got to why you lost those points, this tool privides data-driven isights to fix the root cause of academic gaps.
+## Why?
+The best strategy to achieve top grades isn't just to study hard, but to study smart and optimize your time.
 
-# Features:
-**Smart Loggin:** Categorizes erros into 5 distinct psychological/technical types:
+**Error Autopsy** is a command-line interface (CLI) tool designed to track, categorize, and analyze mistakes made in mock exams. By shifting the focus from the score you got to *why* you lost those points, this tool provides data-driven insights to fix the root cause of academic gaps.
+
+## Features
+- **Smart Logging:** Categorizes errors into 5 distinct psychological/technical types:
    1. Content Gap
    2. Attention Detail
-   3. Time Menagment
+   3. Time Management
    4. Fatigue
-   5. Interpretaion
-**Data Persistence:** Uses local JSON storage to keep a historical log of performance.
-**Analytics:** Generates reports showimg error distribution 
+   5. Interpretation
 
-# Prerequisites:
-    - python 3.10+
+- **Data Persistence:** Uses local JSON storage to keep a historical log of performance.
+- **Analytics:** Generates reports showing error distribution.
 
-# Instalation:
-    - clone the repository:
-    ```bash
-   git clone [https://github.com/YOUR_USERNAME/error-autopsy.git](https://github.com/SEU_USUARIO/error-autopsy.git)
+## Prerequisites
+- Python 3.10+
+
+## Installation
+1. Clone the repository:
+   ```bash
+   git clone [https://github.com/SEU_USUARIO/error-autopsy.git](https://github.com/SEU_USUARIO/error-autopsy.git)
