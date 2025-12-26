@@ -1,6 +1,8 @@
 import time
 from datetime import date, datetime
 
+import altair as alt
+import pandas as pd
 import streamlit as st
 
 import database as db
@@ -248,7 +250,7 @@ def local_css():
 
         /* Chart card - clean white background */
         .chart-card {
-            background: #ffffff;
+            background: #EEEEEE;
             border-radius: 24px;
             padding: 28px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.06);
@@ -318,24 +320,12 @@ def local_css():
             flex-direction: column;
         }
 
-        .insight-icon-wrapper {
-            width: 52px;
-            height: 52px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 14px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 1.5rem;
-            backdrop-filter: blur(10px);
-        }
-
         .insight-title {
-            font-size: 1.45rem;
+            font-size: 1.6rem;
             font-weight: 700;
-            color: #ffffff;
+            color: #eeeeee;
             margin: 0 0 0.2rem 0;
-            font-style: italic;
+            font-style: bold;
             position: relative;
             display: inline-block;
             padding-bottom: 0.3rem;
@@ -537,7 +527,7 @@ def aggregate_by_month_all(data):
 
 
 def generate_mini_insight(data):
-    """Generate a brief AI-style insight about the student's performance."""
+    # Generate a brief AI-style insight about the student's performance.
     if not data:
         return (
             "No data available yet. Start logging errors to get personalized insights."
@@ -738,73 +728,77 @@ if menu == "Dashboard":
     # Second row: Chart card and AI Insight card
     st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
 
-    chart_col, insight_col = st.columns([1.3, 1])
+    chart_col, insight_col = st.columns([2, 1])
 
     with chart_col:
         # Initialize chart view state
         if "chart_view" not in st.session_state:
             st.session_state.chart_view = 0
 
-        # Ensure current_view is an integer
         current_view = st.session_state.chart_view
-        if isinstance(current_view, str):
-            current_view = 0 if current_view == "Subject" else 1
-            st.session_state.chart_view = current_view
-
         subtitles = ["Analysis by discipline", "Timeline overview"]
 
-        # Create buttons for navigation using st.form to avoid extra spacing
-        col_btn1, col_btn2, col_spacer = st.columns([0.5, 0.5, 9])
-        with col_btn1:
-            if st.button("⬤" if current_view == 0 else "○", key="dot0", help="Subject"):
-                st.session_state.chart_view = 0
-                st.rerun()
-        with col_btn2:
-            if st.button("⬤" if current_view == 1 else "○", key="dot1", help="Month"):
-                st.session_state.chart_view = 1
-                st.rerun()
-
-        # Single container for entire card
-        st.markdown(
-            f"""
-            <div class="chart-card">
-                <div class="chart-header">
-                    <div>
-                        <h3 class="chart-title">Error Concentration</h3>
-                        <p class="chart-subtitle">{subtitles[current_view]}</p>
-                    </div>
-                </div>
+        # Header with title and toggle button
+        col_title, col_button = st.columns([12, 1])
+        with col_title:
+            st.markdown(
+                f"""
+                <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Concentration</h3>
+                <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">{subtitles[current_view]}</p>
             """,
-            unsafe_allow_html=True,
-        )
+                unsafe_allow_html=True,
+            )
 
-        # Chart content
+        with col_button:
+            if st.button("→", key="chart_toggle", help="Toggle view"):
+                st.session_state.chart_view = 1 - current_view
+                st.rerun()
+
+        # Build data for the selected view
         if current_view == 0:
             subject_data = aggregate_by_subject(errors)
-            if subject_data:
-                import pandas as pd
-
+            if not subject_data:
+                st.info("No data available yet. Start logging errors!")
+            else:
                 df = pd.DataFrame(
                     list(subject_data.items()), columns=["Subject", "Errors"]
+                ).sort_values("Errors", ascending=False)
+
+                chart = (
+                    alt.Chart(df)
+                    .mark_bar(color="#6366f1")
+                    .encode(
+                        x=alt.X("Subject:N", title=None),
+                        y=alt.Y("Errors:Q", title=None),
+                    )
+                    .properties(height=320)
+                    .configure_view(strokeOpacity=0)
+                    .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
                 )
-                df = df.sort_values("Errors", ascending=False)
-                st.bar_chart(df.set_index("Subject"), color="#6366f1", height=320)
-            else:
-                st.info("No data available yet. Start logging errors!")
+                st.altair_chart(chart, use_container_width=True)
         else:
             month_data = aggregate_by_month_all(errors)
-            if month_data:
-                import pandas as pd
-
+            if not month_data:
+                st.info("No data available yet. Start logging errors!")
+            else:
                 sorted_months = sorted(
-                    month_data.items(), key=lambda x: datetime.strptime(x[0], "%b %Y")
+                    month_data.items(),
+                    key=lambda x: datetime.strptime(x[0], "%b %Y"),
                 )
                 df = pd.DataFrame(sorted_months, columns=["Month", "Errors"])
-                st.bar_chart(df.set_index("Month"), color="#6366f1", height=320)
-            else:
-                st.info("No data available yet. Start logging errors!")
 
-        st.markdown("</div>", unsafe_allow_html=True)
+                chart = (
+                    alt.Chart(df)
+                    .mark_bar(color="#6366f1")
+                    .encode(
+                        x=alt.X("Month:N", title=None, sort=None),
+                        y=alt.Y("Errors:Q", title=None),
+                    )
+                    .properties(height=320)
+                    .configure_view(strokeOpacity=0)
+                    .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+                )
+                st.altair_chart(chart, use_container_width=True)
 
     with insight_col:
         mini_insight = generate_mini_insight(errors)
@@ -812,14 +806,7 @@ if menu == "Dashboard":
         st.markdown(
             f"""
             <div class="insight-card">
-                <div class="insight-icon-wrapper">
-                    <svg viewBox="0 0 24 24" fill="white" width="26" height="26">
-                        <circle cx="12" cy="12" r="3" fill="white"/>
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="white" opacity="0.6"/>
-                        <path d="M12 6v6l4 2" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.8" fill="none"/>
-                    </svg>
-                </div>
-                <h3 class="insight-title">AI Insight</h3>
+                <h3 class="insight-title" style="color: #eeeeee;">AI Insight</h3>
                 <div class="insight-content">
                     {mini_insight}
                 </div>
