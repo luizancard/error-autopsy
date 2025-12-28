@@ -5,6 +5,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+import analytics as an
 import database as db
 
 errors = db.load_data()
@@ -527,41 +528,8 @@ def aggregate_by_month_all(data):
 
 
 def generate_mini_insight(data):
-    # Generate a brief AI-style insight about the student's performance.
-    if not data:
-        return (
-            "No data available yet. Start logging errors to get personalized insights."
-        )
-
-    total = len(data)
-    stats = aggregate_monthly_stats(data)
-    subject_counts = aggregate_by_subject(data)
-
-    # Find top subject
-    top_subject = (
-        max(subject_counts.items(), key=lambda x: x[1])[0]
-        if subject_counts
-        else "Unknown"
-    )
-    top_subject_count = subject_counts.get(top_subject, 0)
-
-    # Calculate percentage
-    if total > 0:
-        pct = int((top_subject_count / total) * 100)
-    else:
-        pct = 0
-
-    # Craft a mini insight
-    if stats["current_total"] > 5:
-        intensity = "frequently making mistakes"
-    elif stats["current_total"] > 2:
-        intensity = "making some errors"
-    else:
-        intensity = "showing good progress"
-
-    insight = f'You are {intensity} in <span class="insight-highlight">{top_subject}</span> after {stats["current_total"]} logged errors this month. This suggests possible content gaps or rushed execution.'
-
-    return insight
+    # enerate AI-powered insight based on last 2 months of error data.
+    return an.generate_web_insight(data)
 
 
 # Custom sidebar with professional design

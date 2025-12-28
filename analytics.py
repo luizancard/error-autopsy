@@ -244,6 +244,184 @@ Be brutally honest, data-driven, and specific. Focus on the highest-leverage cha
         print(f"\n{RED}Error calling Gemini API: {e}{RESET}")
 
 
+def generate_mini_insight(data):
+    if not client:
+        print(f"\n{RED}API Key missing. Cannot use AI analysis.{RESET}")
+        return
+
+    if not data:
+        print("\nNo data to analyze yet. Log errors first.")
+        return
+
+    # Filter data to only include the last 2 months
+    now = datetime.now()
+    two_months_ago = 60  # days
+    recent_data = []
+
+    for item in data:
+        raw_date = item.get("date")
+        try:
+            dt = datetime.strptime(raw_date, "%d-%m-%Y")
+            days_diff = (now - dt).days
+            if days_diff <= two_months_ago:
+                recent_data.append(item)
+        except (TypeError, ValueError):
+            continue
+
+    if not recent_data:
+        print("\nNo data found in the last 2 months. Log more recent errors.")
+        return
+
+    # Analyze the last 2 months
+    subject_counts = count_subjects(recent_data)
+    topic_counts = count_topics(recent_data)
+    error_type_counts = count_error_types(recent_data)
+
+    # Get current day of the week
+    today = now.strftime("%A, %B %d, %Y")
+
+    summary = {
+        "total_errors_last_2_months": len(recent_data),
+        "subjects": subject_counts,
+        "topics": topic_counts,
+        "error_types": error_type_counts,
+        "today": today,
+    }
+
+    # Create prompt for daily action recommendation
+    prompt = f"""You are an elite study coach for a high-achieving high school student. Based on their error data from the LAST 2 MONTHS, you need to give them ONE clear, actionable recommendation for what they should do TODAY.
+
+STUDENT ERROR DATA (Last 2 Months):
+- Total Errors: {summary["total_errors_last_2_months"]}
+- Subject Distribution: {summary["subjects"]}
+- Topic Distribution: {summary["topics"]}
+- Error Type Distribution: {summary["error_types"]}
+
+TODAY'S DATE: {summary["today"]}
+
+TASK:
+Generate ONE powerful, specific sentence telling the student EXACTLY what they should focus on TODAY to see better results. This should be:
+- Directly based on the data patterns (their weakest subject, most common error type, or critical topic)
+- Actionable TODAY (e.g., "Practice 10 timed problems on [specific topic]", "Do active recall on [subject] for 30 minutes")
+- Concrete and measurable
+- No motivational fluff - pure tactical instruction
+
+OUTPUT:
+Return ONLY the recommendation sentence. No markdown, no headers, just the sentence."""
+
+    try:
+        print("\nPlease wait, generating today's recommendation...\n")
+        # Configure Gemini API with optimal settings
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={
+                "temperature": 0.7,  # Balanced for specific but varied recommendations
+                "max_output_tokens": 200,  # Short, focused output
+                "top_p": 0.9,
+                "top_k": 40,
+            },
+        )
+
+        print("\n" + "=" * 80)
+        print(response.text)
+        print("=" * 80 + "\n")
+
+    except Exception as e:
+        print(f"\n{RED}Error calling Gemini API: {e}{RESET}")
+
+
+def generate_web_insight(data):
+    """Generate AI-powered insight for web app based on last 2 months of data"""
+    if not client:
+        return (
+            "AI insights temporarily unavailable. Please check your API configuration."
+        )
+
+    if not data:
+        return (
+            "No data available yet. Start logging errors to get personalized insights."
+        )
+
+    # Filter data to only include the last 2 months
+    now = datetime.now()
+    two_months_ago = 60  # days
+    recent_data = []
+
+    for item in data:
+        raw_date = item.get("date")
+        try:
+            dt = datetime.strptime(raw_date, "%d-%m-%Y")
+            days_diff = (now - dt).days
+            if days_diff <= two_months_ago:
+                recent_data.append(item)
+        except (TypeError, ValueError):
+            continue
+
+    if not recent_data:
+        return "No data found in the last 2 months. Log more recent errors to get insights."
+
+    # Analyze the last 2 months
+    subject_counts = count_subjects(recent_data)
+    topic_counts = count_topics(recent_data)
+    error_type_counts = count_error_types(recent_data)
+
+    # Get current day info
+    today = now.strftime("%A, %B %d, %Y")
+
+    # Get top 3 subjects, topics, and error types
+    top_subjects = sorted(subject_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+    top_topics = sorted(topic_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+    top_error_types = sorted(
+        error_type_counts.items(), key=lambda x: x[1], reverse=True
+    )[:3]
+
+    # Create prompt for insight generation
+    prompt = f"""You are an elite study coach for a high-achieving high school student. Based on their error data from the LAST 2 MONTHS, provide ONE powerful, tactical insight.
+
+STUDENT ERROR DATA (Last 60 Days):
+- Total Errors: {len(recent_data)}
+- Top Subjects: {dict(top_subjects)}
+- Top Topics: {dict(top_topics)}
+- Top Error Types: {dict(top_error_types)}
+
+TODAY: {today}
+
+TASK:
+Generate ONE insight sentence (max 25 words) that:
+- Identifies their BIGGEST weakness from the data
+- States ONE immediate action they should take TODAY to get better 
+- Is specific, tactical, and based on the patterns shown
+
+OUTPUT FORMAT:
+Return ONLY the insight as plain text. Use <span class=\"insight-highlight\">subject/topic name</span> to highlight important terms (use this ONLY once for the most important term). No other HTML, no markdown, no headers.
+
+Example format: "Your 12 errors in <span class=\"insight-highlight\">Math</span> suggest content gaps - review geometry fundamentals for 30 minutes today."""
+
+    try:
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+            config={
+                "temperature": 0.8,
+                "max_output_tokens": 100,
+                "top_p": 0.9,
+                "top_k": 40,
+            },
+        )
+
+        insight = response.text.strip()
+        # Clean up any unwanted formatting
+        insight = insight.replace('"', "r").replace("*", "").strip()
+        return insight
+
+    except Exception:
+        # Fallback to a data-driven insight if AI fails
+        top_subject = top_subjects[0][0] if top_subjects else "Unknown"
+        top_count = top_subjects[0][1] if top_subjects else 0
+        return f'You made {len(recent_data)} errors in the last 2 months, with <span class="insight-highlight">{top_subject}</span> accounting for {top_count}. Focus on this subject today.'
+
+
 def study_plan(data):
     if not client:
         print(f"\n{RED}API Key missing. Cannot use AI analysis.{RESET}")
