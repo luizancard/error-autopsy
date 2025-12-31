@@ -350,7 +350,7 @@ Return ONLY the recommendation sentence. No markdown, no headers, just the sente
         print("\nPlease wait, generating today's recommendation...\n")
         # Configure Gemini API with optimal settings
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
             config={
                 "temperature": 0.7,  # Balanced for specific but varied recommendations
@@ -426,7 +426,7 @@ def generate_web_insight(data):
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-1.5-flash",
             contents=prompt,
             config={
                 "temperature": 0.8, # Slightly higher for more creative connections
@@ -458,14 +458,89 @@ def generate_web_insight(data):
             return "Keep logging errors to unlock data-driven insights."
 
 
-def study_plan(data):
-    if not client:
-        print(f"\n{RED}API Key missing. Cannot use AI analysis.{RESET}")
-        return
+def generate_pattern_diagnosis(data):
+    """Generates a deep psychological diagnosis of error patterns."""
+    if not client or not data:
+        return "System Idle: Log errors to enable pattern recognition."
+        
+    intro_prompt = """
+    You are an elite Cognitive Performance Coach. 
+    Analyze the provided error log to identify the **Root Psychological Cause** of the user's mistakes.
+    
+    DATA:
+    """ + str(data) + """
+    
+    GOAL:
+    Write a "Neural Strategy Insight" (max 100 words).
+    - Ignore surface level stats.
+    - Dig into the 'description' fields if available to find *why* they failed.
+    - formatting: Use bolding for key terms.
+    - Tone: Surgical, professional, high-performance.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=intro_prompt,
+            config={"temperature": 0.7, "max_output_tokens": 300}
+        )
+        return response.text
+    except Exception as e:
+        return f"Diagnosis unavailable: {str(e)}"
 
-    if not data:
-        print("\nNo data to analyze yet. Log errors first.")
-        return
+
+def generate_tactical_plan(data, exam_config=None):
+    """Generates a structured study plan based on exam config or general growth."""
+    if not client:
+        return "AI Module Offline."
+
+    # context construction
+    # context construction
+    if exam_config and exam_config.get("has_exam"):
+        mode = "TARGETED BLITZ"
+        focus = f"Exam on {exam_config.get('date')} for Subject: {exam_config.get('subject')} covering {exam_config.get('topics')}."
+    else:
+        mode = "GENERAL GROWTH"
+        focus = "Long-term mastery and error reduction."
+        
+    study_days = "Mon, Tue, Wed, Thu, Fri, Sat, Sun"
+    if exam_config and exam_config.get("study_days"):
+        study_days = ", ".join(exam_config.get("study_days"))
+
+    prompt = f"""
+    You are a Tactical Study Strategist. Create a 'High-Leverage Focus Plan'.
+    
+    MODE: {mode}
+    FOCUS: {focus}
+    AVAILABLE STUDY DAYS: {study_days}
+    RECENT ERROR DATA COUNT: {len(data) if data else 0}
+    
+    TASK:
+    Create a daily routine matrix (Morning, Midday, Evening) ONLY for the selected Available Study Days ({study_days}).
+    If ({study_days}) does not include all 7 days, generate a plan ONLY for those days.
+
+    1. **Morning (Retrieval)**: Active recall tasks specific to the user's weak topics.
+    2. **Midday (Execution)**: Timed practice or simulation.
+    3. **Evening (Synthesis)**: Review and error autopsy.
+    
+    Output Format:
+    Return in Markdown. Use headers for blocks (### Morning 01).
+    Keep it concise. If specific error topics exists in the data, PRIORTIZE them in the plan.
+    """
+    
+    try:
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt,
+            config={"temperature": 0.8, "max_output_tokens": 500}
+        )
+        return response.text
+    except Exception as e:
+        return f"Plan generation failed: {str(e)}"
+
+# kept for backward compatibility if needed, but likely replaced by above
+def study_plan(data):
+    return generate_tactical_plan(data)
 
     # Optional exam targeting inputs
     target_exam = (

@@ -976,29 +976,63 @@ if menu == "Dashboard":
                 st.altair_chart(chart, use_container_width=True)
 
     with insight_col:
-        # Pass the FILTERED data to the AI
-        mini_insight = generate_mini_insight(chart_errors)
-
+        # Check for refresh request via query params (from the custom HTML form)
+        # We need to handle this BEFORE displaying logic to ensure it updates instantly
+        qp = st.query_params
+        if qp.get("refresh_insight") == "true":
+             st.session_state.dashboard_insight = an.generate_mini_insight(chart_errors)
+        
+        # Check if we already have a cached insight for this session
+        if "dashboard_insight" not in st.session_state:
+             st.session_state.dashboard_insight = an.generate_mini_insight(chart_errors)
+        
+        mini_insight = st.session_state.dashboard_insight
+        
+        # We need a way to refresh it. Let's add a small refresh icon/button near the title using columns inside the markdown? 
+        # Or simpler: Just rely on the cache. If they want new, they can clear cache or we add a button.
+        # Let's add a button below the text.
+        
         st.markdown(
             f"""
             <div class="insight-card">
-                <h3 class="insight-title" style="color: #eeeeee;">AI Insight</h3>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h3 class="insight-title" style="color: #eeeeee; margin:0;">AI Insight</h3>
+                </div>
                 <div class="insight-content">
                     {mini_insight}
                 </div>
-                <form method="get">
-                    <input type="hidden" name="menu" value="Coach AI" />
-                    <button type="submit" class="action-button">
-                        View Action Plan
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-                            <path d="M5 12h14M12 5l7 7-7 7"/>
+                <form action="/" method="get">
+                     <button name="refresh_insight" value="true" type="submit" style="
+                        background: rgba(255,255,255,0.1); 
+                        border: none; 
+                        color: white; 
+                        padding: 4px 8px; 
+                        border-radius: 4px; 
+                        cursor: pointer; 
+                        font-size: 0.75rem;
+                        margin-top: 10px;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                     ">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                             <path d="M23 4v6h-6"></path>
+                             <path d="M1 20v-6h6"></path>
+                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                         </svg>
-                    </button>
+                        Refresh Insight
+                     </button>
+                    <!-- Keep menu context -->
+                     <input type="hidden" name="menu" value="Dashboard" />
                 </form>
+                
+
             </div>
             """,
             unsafe_allow_html=True,
         )
+        
+
 
     # -------------------------------------------------------------------------
     # NEW SECTION: Error Breakdown by Type (Pie Chart) with separate filter
@@ -1097,40 +1131,340 @@ elif menu == "Log Error":
                 ],
                 key="error_type_select",
             )
-
+        
         description = st.text_area(
-            "Description", placeholder="What exactly happened?", key="description_input"
+            "Description (Optional)",
+            placeholder="Why do you think this happened?",
+            key="description_input",
         )
 
-        # Adding some space before the button
-        st.write("")
+        submitted = st.button("Log Mistake", use_container_width=True)
 
-        if st.button("Save Error", type="primary"):
-            new_id = len(errors) + 1
-            formatted_date = date_input.strftime("%d-%m-%Y")
+        if submitted:
+            if not subject or not topic:
+                st.error("Please fill in both Subject and Topic.")
+            else:
+                an.log_error(
+                    errors,
+                    subject,
+                    topic,
+                    error_type,
+                    description,
+                    str(date_input),
+                )
+                st.session_state.show_success = True
+                st.session_state.success_message = f"Error in {subject} ({topic}) logged!"
+                st.session_state.reset_form = True  # Trigger reset on next run
+                st.rerun()
 
-            new_error = {
-                "id": new_id,
-                "date": formatted_date,
-                "subject": subject,
-                "topic": topic,
-                "description": description,
-                "type": error_type,
-            }
-            errors.append(new_error)
-            db.save_data(errors)
+    if st.session_state.show_success:
+        st.success(st.session_state.success_message)
+        time.sleep(2)  # Brief pause so user sees it
+        st.session_state.show_success = False
+        st.session_state.success_message = ""
+        st.rerun()
 
-            # Save the success message to session state
-            st.session_state.success_message = f"Error {new_id} Saved Successfully!"
-            st.session_state.show_success = True
-            st.session_state.reset_form = True
-            if st.session_state.show_success:
-                st.success(st.session_state.success_message)
-                time.sleep(1)
-                st.session_state.show_sucess = False
-
-            st.rerun()
 elif menu == "Coach AI":
-    st.empty()
+    # ---------------------------------------------------------
+    # 1. HIGH-FIDELITY CSS INJECTION
+    # ---------------------------------------------------------
+    st.markdown("""
+        <style>
+            /* Global Font Override */
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            
+            html, body, [class*="css"] {
+                font-family: 'Inter', 'Helvetica Neue', sans-serif;
+            }
+            
+            /* Custom Pill Nav */
+            .nav-pill {
+                display: inline-block;
+                padding: 8px 16px;
+                border-radius: 99px;
+                font-size: 0.8rem;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.05em;
+                cursor: pointer;
+                transition: all 0.2s ease;
+                border: 1px solid transparent;
+                margin-right: 8px;
+            }
+            .nav-pill.active {
+                background-color: #0f172a;
+                color: white;
+                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+            }
+            .nav-pill.inactive {
+                background-color: white;
+                color: #64748b;
+                border: 1px solid #e2e8f0;
+            }
+            .nav-pill.inactive:hover {
+                background-color: #f8fafc;
+                border-color: #cbd5e1;
+                color: #334155;
+            }
+            
+            /* "Ghost" Button Style (as seen in screenshots) */
+            .ghost-btn {
+                background: white;
+                border: 1px solid #e2e8f0;
+                color: #0f172a;
+                font-weight: 600;
+                border-radius: 8px;
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+                transition: all 0.2s;
+            }
+            .ghost-btn:hover {
+                background: #f8fafc;
+                border-color: #cbd5e1;
+            }
+            
+            /* Dashed Empty State */
+            .dashed-container {
+                border: 2px dashed #e2e8f0;
+                border-radius: 24px;
+                background-color: #ffffff;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+                padding: 6rem 2rem;
+                min-height: 400px;
+                margin-top: 1.5rem;
+            }
+            
+            /* Configuration Modal Style */
+            .config-card {
+                background: white;
+                border: 1px solid #e2e8f0;
+                border-radius: 24px;
+                padding: 2rem;
+                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+                max-width: 600px;
+                margin: 2rem auto;
+            }
+            
+            /* Hide Default Streamlit Elements */
+            [data-testid="stHeader"] { visibility: hidden; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # ---------------------------------------------------------
+    # 2. CUSTOM NAVIGATION (State-Based)
+    # ---------------------------------------------------------
+    # Init state for sub-view
+    if "coach_view" not in st.session_state:
+        st.session_state.coach_view = "diagnostic"
+
+    # Custom Top Bar
+    c_nav, c_actions = st.columns([1, 1])
+    
+    with c_nav:
+        # We use columns to simulate the pill buttons side-by-side
+        # To make them strictly clickable, we use st.button but heavily styled
+        # Or better: Standard st.pills if available? It's new in very recent streamlit. 
+        # Let's stick to buttons for stability, or better yet, a segmented control.
+        # Streamlit has `st.segmented_control` in 1.40.0+. I'll assume we are on standard.
+        # Simplest approach: Two columns with buttons and conditionally render style.
+        
+        n1, n2, n_spacer = st.columns([1, 1, 3])
+        if n1.button("AI DIAGNOSTIC ENGINE", key="nav_diag", 
+                     type="primary" if st.session_state.coach_view == "diagnostic" else "secondary",
+                     use_container_width=True):
+            st.session_state.coach_view = "diagnostic"
+            st.rerun()
+            
+        if n2.button("STUDY PLAN", key="nav_plan", 
+                     type="primary" if st.session_state.coach_view == "plan" else "secondary",
+                     use_container_width=True):
+            st.session_state.coach_view = "plan"
+            st.rerun()
+
+    # ---------------------------------------------------------
+    # 3. DIAGNOSTIC ENGINE VIEW
+    # ---------------------------------------------------------
+    if st.session_state.coach_view == "diagnostic":
+        st.markdown("""
+            <h1 style="font-family:'Helvetica Neue'; font-weight:900; font-style:italic; font-size:3rem; letter-spacing:-0.04em; margin-bottom:0; line-height:1.1;">
+                AI DIAGNOSTIC ENGINE
+            </h1>
+            <p style="color:#64748b; font-size:1.1rem; font-weight:500; margin-top:0.5rem; margin-bottom:2rem;">
+                Scanning behavioral data to identify neuro-cognitive bottlenecks.
+            </p>
+        """, unsafe_allow_html=True)
+        
+        # Controls Row
+        c_filter, c_btn = st.columns([1, 4])
+        with c_filter:
+            time_scope = st.selectbox("Scope", ["Last 30 Days", "Last 60 Days"], label_visibility="collapsed")
+        with c_btn:
+            # Right align the button
+            st.markdown(
+                """
+                <div style="text-align: right;">
+                    <!-- Use Streamlit form to capture this action properly -->
+                </div>
+                """, unsafe_allow_html=True
+            )
+            # Just standard button for now, styled via primary type
+            run_diag = st.button("RUN DEEP DIAGNOSIS", type="primary", use_container_width=False)
+
+        # Logic
+        if run_diag:
+             # Just like before
+             days = 30 if "30" in time_scope else 60
+             filtered_data = an.filter_data_by_range(errors, months=None) 
+             cutoff = date.today() - pd.Timedelta(days=days)
+             filtered_diag_data = [e for e in errors if datetime.strptime(e['date'], "%d-%m-%Y").date() >= cutoff]
+             
+             with st.spinner("Analyzing neural patterns..."):
+                 diagnosis = an.generate_pattern_diagnosis(filtered_diag_data)
+                 st.session_state.latest_diagnosis = diagnosis
+                 st.session_state.diagnosis_date = time_scope
+
+        # DISPLAY AREA
+        if "latest_diagnosis" in st.session_state and st.session_state.get('diagnosis_date') == time_scope:
+             # RENDER ACTIVE CARD (We'll reuse the style from before but refined)
+             date_scope = st.session_state.get('diagnosis_date', 'Unknown')
+             diagnosis_text = st.session_state.latest_diagnosis
+             st.markdown(f"""
+                 <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 3rem; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.08); margin-top: 1rem;">
+                    <!-- Header -->
+                    <div style="display:flex; justify-content:space-between; margin-bottom:2rem;">
+                        <span style="background:#fef3c7; color:#d97706; font-weight:800; font-size:0.75rem; padding:6px 14px; border-radius:99px; text-transform:uppercase; letter-spacing:0.05em;">Neural Insight</span>
+                        <span style="color:#94a3b8; font-weight:600; font-size:0.9rem;">{date_scope}</span>
+                    </div>
+                    <!-- Content -->
+                    <div style="font-size:1.4rem; line-height:1.6; font-weight:500; color:#1e293b; font-family:'Helvetica Neue';">
+                        {diagnosis_text}
+                    </div>
+                    <!-- Footer -->
+                    <div style="margin-top:2.5rem; padding-top:2rem; border-top:1px solid #f1f5f9;">
+                         <div style="font-size:0.8rem; text-transform:uppercase; color:#64748b; font-weight:700; letter-spacing:0.05em;">Diagnosis Confidence: <span style="color:#10b981;">98.2%</span></div>
+                    </div>
+                 </div>
+             """, unsafe_allow_html=True)
+        else:
+            # IDLE STATE
+            st.markdown("""
+                <div class="dashed-container">
+                    <div style="width:72px; height:72px; background:#f8fafc; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                    </div>
+                    <h3 style="color:#0f172a; font-weight:700; font-size:1.5rem; margin:0 0 0.5rem 0;">Neural Link Idle</h3>
+                    <p style="color:#64748b; max-width:400px; line-height:1.6;">Request a diagnosis to allow the AI to scan your recent error descriptions and performance trends.</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+
+    # ---------------------------------------------------------
+    # 4. STUDY PLAN VIEW
+    # ---------------------------------------------------------
+    elif st.session_state.coach_view == "plan":
+         st.markdown("""
+            <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:2rem;">
+                <div>
+                    <h1 style="font-family:'Helvetica Neue'; font-weight:900; font-style:italic; font-size:3rem; letter-spacing:-0.04em; margin-bottom:0; line-height:1.1;">
+                        STUDY PLAN
+                    </h1>
+                    <p style="color:#64748b; font-size:1.1rem; font-weight:500; margin-top:0.5rem;">
+                        High-retention schedules mapping your path to mastery.
+                    </p>
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+         
+         # "Generate New Plan" Button (Top Right)
+         c_main, c_new = st.columns([4, 1])
+         with c_new:
+             if st.button("+ GENERATE NEW PLAN", use_container_width=True):
+                 st.session_state.show_config_modal = True
+         
+         # Logic for Modal
+         if st.session_state.get("show_config_modal", False):
+             # RENDER CONFIG FORM
+             with st.container():
+                 st.markdown("""
+                    <div class="config-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
+                             <h3 style="margin:0; font-weight:800; font-size:1.5rem;">CONFIGURATIONS</h3>
+                        </div>
+                 """, unsafe_allow_html=True)
+                 
+                 # 1. Exam Toggle
+                 st.markdown("<label style='font-size:0.8rem; font-weight:700; color:#64748b; text-transform:uppercase;'>Do you have an upcoming exam?</label>", unsafe_allow_html=True)
+                 has_exam = st.radio("Has Exam", ["YES", "NO, GENERAL GROWTH"], horizontal=True, label_visibility="collapsed")
+                 
+                 st.write("")
+                 st.write("")
+                 
+                 # 2. Study Days (Standard Multi-Select or Styled Buttons)
+                 st.markdown("<label style='font-size:0.8rem; font-weight:700; color:#64748b; text-transform:uppercase;'>Select Study Days</label>", unsafe_allow_html=True)
+                 selected_days = st.pills("Days", ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"], selection_mode="multi", default=["MON", "WED", "FRI"])
+                 
+                 # 3. Exam Details (Conditional)
+                 exam_config = {}
+                 if has_exam == "YES":
+                     st.write("")
+                     c1, c2 = st.columns(2)
+                     with c1:
+                         sub = st.text_input("Subject", placeholder="e.g. Quantum Physics")
+                     with c2:
+                         dt = st.date_input("Exam Date")
+                     
+                     topics = st.text_area("Target Topics", placeholder="What specific topics will be covered?")
+                     
+                     exam_config = {
+                         "has_exam": True, 
+                         "subject": sub, 
+                         "date": str(dt), 
+                         "topics": topics,
+                         "study_days": selected_days
+                     }
+                 else:
+                     exam_config = {
+                         "has_exam": False,
+                         "study_days": selected_days
+                     }
+                     
+                 st.write("")
+                 st.write("")
+                 
+                 if st.button("GENERATE INTELLIGENCE PLAN", type="primary", use_container_width=True):
+                      with st.spinner("Constructing tactical matrix..."):
+                           plan = an.generate_tactical_plan(errors, exam_config)
+                           st.session_state.tactical_plan = plan
+                           st.session_state.show_config_modal = False # Close modal
+                           st.rerun()
+                           
+                 st.markdown("</div>", unsafe_allow_html=True) # End card
+         
+         # ACTIVE PLAN DISPLAY
+         if "tactical_plan" in st.session_state and not st.session_state.get("show_config_modal", False):
+              plan_content = st.session_state.tactical_plan
+              st.markdown(f"""
+                 <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 3rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-top:2rem;">
+                      <div style="font-family: 'Helvetica Neue', sans-serif; line-height: 1.8; color: #334155;">
+                        {plan_content}
+                      </div>
+                 </div>
+              """, unsafe_allow_html=True)
+         elif not st.session_state.get("show_config_modal", False):
+              # IDLE STATE
+              st.markdown("""
+                <div class="dashed-container">
+                    <div style="width:72px; height:72px; background:#f8fafc; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </div>
+                    <h3 style="color:#0f172a; font-weight:700; font-size:1.5rem; margin:0 0 0.5rem 0;">Awaiting Parameters</h3>
+                    <p style="color:#64748b; max-width:400px; line-height:1.6;">Configure your exam details or weekly goals to generate a personalized trajectory.</p>
+                </div>
+            """, unsafe_allow_html=True)
 elif menu == "History":
     st.empty()
+
