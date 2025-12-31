@@ -61,6 +61,43 @@ def count_topics(data):
     return topic_counts
 
 
+def filter_data_by_range(data, months):
+    """Filter data to only include entries from the last N months."""
+    if not data:
+        return []
+    
+    if months is None: # "All time"
+        return data
+
+    now = datetime.now()
+    cutoff_date = now.replace(day=1) # Start comparison from roughly now
+    filtered_data = []
+    
+    from dateutil.relativedelta import relativedelta # Standard lib only preferred?
+    # standard lib:
+    
+    cutoff = None
+    
+    if months == 0:
+        # Start of current month
+        cutoff = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    else:
+        days_back = months * 30
+        from datetime import timedelta
+        cutoff = now - timedelta(days=days_back)
+        
+    for item in data:
+         raw_date = item.get("date")
+         try:
+             dt = datetime.strptime(raw_date, "%d-%m-%Y")
+             if dt >= cutoff:
+                 filtered_data.append(item)
+         except (TypeError, ValueError):
+             continue
+             
+    return filtered_data
+
+
 def count_entries_by_month(data):
     if not data:
         print("No data to analyze yet.")
@@ -105,10 +142,10 @@ def create_graphs(data):
 
     # Dados para cada gráfico
     datasets = [
-        (type_counts, "Error Types", axes[0, 0], "steelblue"),
-        (subject_counts, "Subjects", axes[0, 1], "coral"),
-        (topic_counts, "Topics", axes[1, 0], "mediumseagreen"),
-        (month_counts, "Timeline (by Month)", axes[1, 1], "mediumpurple"),
+        (type_counts, "Error Types", axes[0, 0], "#6366f1"),
+        (subject_counts, "Subjects", axes[0, 1], "#6366f1"),
+        (topic_counts, "Topics", axes[1, 0], "#6366f1"),
+        (month_counts, "Timeline (by Month)", axes[1, 1], "#6366f1"),
     ]
 
     # Criar cada gráfico
@@ -332,7 +369,7 @@ Return ONLY the recommendation sentence. No markdown, no headers, just the sente
 
 
 def generate_web_insight(data):
-    """Generate AI-powered insight for web app based on last 2 months of data"""
+    """Generate professional AI insight based on the provided (filtered) data."""
     if not client:
         return (
             "AI insights temporarily unavailable. Please check your API configuration."
@@ -340,33 +377,20 @@ def generate_web_insight(data):
 
     if not data:
         return (
-            "No data available yet. Start logging errors to get personalized insights."
+            "No data in this period. Log more errors or adjust the filter to get key insights."
         )
 
-    # Filter data to only include the last 2 months
-    now = datetime.now()
-    two_months_ago = 60  # days
-    recent_data = []
+    # Note: 'data' is already filtered by the dashboard time selector, 
+    # so we analyze WHATEVER is passed to us (last 6 months, this month, etc.)
+    recent_data = data
 
-    for item in data:
-        raw_date = item.get("date")
-        try:
-            dt = datetime.strptime(raw_date, "%d-%m-%Y")
-            days_diff = (now - dt).days
-            if days_diff <= two_months_ago:
-                recent_data.append(item)
-        except (TypeError, ValueError):
-            continue
-
-    if not recent_data:
-        return "No data found in the last 2 months. Log more recent errors to get insights."
-
-    # Analyze the last 2 months
+    # Analyze the provided data
     subject_counts = count_subjects(recent_data)
     topic_counts = count_topics(recent_data)
     error_type_counts = count_error_types(recent_data)
 
     # Get current day info
+    now = datetime.now()
     today = now.strftime("%A, %B %d, %Y")
 
     # Get top 3 subjects, topics, and error types
@@ -377,34 +401,36 @@ def generate_web_insight(data):
     )[:3]
 
     # Create prompt for insight generation
-    prompt = f"""You are an elite study coach for a high-achieving high school student. Based on their error data from the LAST 2 MONTHS, provide ONE powerful, tactical insight.
+    prompt = f"""You are a world-class Performance Psychologist and Strategy Coach for elite students. 
+    Analyze this error data to find the single most critical friction point.
 
-STUDENT ERROR DATA (Last 60 Days):
-- Total Errors: {len(recent_data)}
-- Top Subjects: {dict(top_subjects)}
-- Top Topics: {dict(top_topics)}
-- Top Error Types: {dict(top_error_types)}
+    DATA FOR ANALYSIS:
+    - Total Errors: {len(recent_data)}
+    - Top Subjects: {dict(top_subjects)}
+    - Top Topics: {dict(top_topics)}
+    - Top Error Types: {dict(top_error_types)}
 
-TODAY: {today}
+    DATE: {today}
 
-TASK:
-Generate ONE insight sentence (max 25 words) that:
-- Identifies their BIGGEST weakness from the data
-- States ONE immediate action they should take TODAY to get better 
-- Is specific, tactical, and based on the patterns shown
+    YOUR GOAL:
+    Provide ONE high-precision tactical insight (max 40 words) that connects a specific TOPIC to an ERROR TYPE.
+    
+    GUIDELINES:
+    1.  **Be Specific**: Don't say "Study Math." Say "Your high rate of Interpretation errors in Functions suggests you are rushing to solve before fully reading the problem conditions."
+    2.  **Highlight the specific TOPIC** (e.g. Geometry, Thermo, etc.) if it is a major outlier.
+    3.  **Give a Tactic**: Suggest a specific mental model (e.g. "Use the Feynman technique," "Write down variables first," "Draw the diagram").
 
-OUTPUT FORMAT:
-Return ONLY the insight as plain text. Use <span class=\"insight-highlight\">subject/topic name</span> to highlight important terms (use this ONLY once for the most important term). No other HTML, no markdown, no headers.
-
-Example format: "Your 12 errors in <span class=\"insight-highlight\">Math</span> suggest content gaps - review geometry fundamentals for 30 minutes today."""
+    OUTPUT FORMAT:
+    Return ONLY the text. Use <span class=\"insight-highlight\">Subject/Topic</span> for the most critical term.
+    """
 
     try:
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config={
-                "temperature": 0.8,
-                "max_output_tokens": 100,
+                "temperature": 0.8, # Slightly higher for more creative connections
+                "max_output_tokens": 150,
                 "top_p": 0.9,
                 "top_k": 40,
             },
@@ -412,14 +438,24 @@ Example format: "Your 12 errors in <span class=\"insight-highlight\">Math</span>
 
         insight = response.text.strip()
         # Clean up any unwanted formatting
-        insight = insight.replace('"', "r").replace("*", "").strip()
+        insight = insight.replace('"', "").replace("*", "").strip()
         return insight
 
     except Exception:
-        # Fallback to a data-driven insight if AI fails
-        top_subject = top_subjects[0][0] if top_subjects else "Unknown"
-        top_count = top_subjects[0][1] if top_subjects else 0
-        return f'You made {len(recent_data)} errors in the last 2 months, with <span class="insight-highlight">{top_subject}</span> accounting for {top_count}. Focus on this subject today.'
+        # Fallback to local logic (Smart Fallback) if AI fails (e.g. rate limit)
+        try:
+            top_subject = top_subjects[0][0] if top_subjects else "General"
+            top_error = top_error_types[0][0] if top_error_types else "Mistakes"
+            top_topic = top_topics[0][0] if top_topics else None
+
+            if top_topic and top_topic != "Unknown":
+                target = top_topic
+            else:
+                target = top_subject
+
+            return f"Notice: High volume of <b>{top_error}</b> errors in <span class=\"insight-highlight\">{target}</span>. Review your fundamental definitions in this area before practicing more problems."
+        except:
+            return "Keep logging errors to unlock data-driven insights."
 
 
 def study_plan(data):

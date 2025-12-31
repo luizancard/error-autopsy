@@ -11,7 +11,7 @@ __pycache__/
 .DS_Store
 
 # Ignorar o seu banco de dados local (opcional, mas recomendado p/ não vazar seus erros pessoais)
-*.json
+error_log.json
 
 #ignorar partes de IA (pra não roubarem meus dados rs)
 .env
