@@ -7,6 +7,8 @@ import streamlit as st
 
 import analytics as an
 import database as db
+import importlib
+importlib.reload(an)
 
 errors = db.load_data()
 DEFAULT_ERROR_TYPE = "Content Gap"
@@ -983,14 +985,14 @@ if menu == "Dashboard":
              st.session_state.dashboard_insight = an.generate_mini_insight(chart_errors)
         
         # Check if we already have a cached insight for this session
-        if "dashboard_insight" not in st.session_state:
+        if "dashboard_insight" not in st.session_state or st.session_state.dashboard_insight is None or str(st.session_state.dashboard_insight) == "None":
              st.session_state.dashboard_insight = an.generate_mini_insight(chart_errors)
         
         mini_insight = st.session_state.dashboard_insight
         
-        # We need a way to refresh it. Let's add a small refresh icon/button near the title using columns inside the markdown? 
-        # Or simpler: Just rely on the cache. If they want new, they can clear cache or we add a button.
-        # Let's add a button below the text.
+        # Fallback for display
+        if mini_insight is None or str(mini_insight) == "None":
+             mini_insight = "Insight generation failed. Please check API Key or Logs."
         
         st.markdown(
             f"""

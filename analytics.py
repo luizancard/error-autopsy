@@ -263,7 +263,7 @@ Be brutally honest, data-driven, and specific. Focus on the highest-leverage cha
         print("\nPlease wait, generating the analisis...\n")
         # Configure Gemini API with optimal settings
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config={
                 "temperature": 0.5,  # Lower for more focused, detailed analysis
@@ -283,12 +283,10 @@ Be brutally honest, data-driven, and specific. Focus on the highest-leverage cha
 
 def generate_mini_insight(data):
     if not client:
-        print(f"\n{RED}API Key missing. Cannot use AI analysis.{RESET}")
-        return
+        return "AI Module Offline: API Key missing or invalid."
 
     if not data:
-        print("\nNo data to analyze yet. Log errors first.")
-        return
+        return "No errors logged yet. Add your first mistake to get insights."
 
     # Filter data to only include the last 2 months
     now = datetime.now()
@@ -306,8 +304,7 @@ def generate_mini_insight(data):
             continue
 
     if not recent_data:
-        print("\nNo data found in the last 2 months. Log more recent errors.")
-        return
+        return "No data found in the last 60 days. Log a recent error to activate the coach."
 
     # Analyze the last 2 months
     subject_counts = count_subjects(recent_data)
@@ -338,7 +335,7 @@ TODAY'S DATE: {summary["today"]}
 
 TASK:
 Generate ONE powerful, specific sentence telling the student EXACTLY what they should focus on TODAY to see better results. This should be:
-- Directly based on the data patterns (their weakest subject, most common error type, or critical topic)
+- Directly based on the data patterns (their wea kest subject, most common error type, or critical topic)
 - Actionable TODAY (e.g., "Practice 10 timed problems on [specific topic]", "Do active recall on [subject] for 30 minutes")
 - Concrete and measurable
 - No motivational fluff - pure tactical instruction
@@ -347,25 +344,20 @@ OUTPUT:
 Return ONLY the recommendation sentence. No markdown, no headers, just the sentence."""
 
     try:
-        print("\nPlease wait, generating today's recommendation...\n")
         # Configure Gemini API with optimal settings
         response = client.models.generate_content(
             model="gemini-1.5-flash",
             contents=prompt,
             config={
-                "temperature": 0.7,  # Balanced for specific but varied recommendations
-                "max_output_tokens": 200,  # Short, focused output
+                "temperature": 0.7,
+                "max_output_tokens": 200,
                 "top_p": 0.9,
                 "top_k": 40,
             },
         )
-
-        print("\n" + "=" * 80)
-        print(response.text)
-        print("=" * 80 + "\n")
-
+        return response.text
     except Exception as e:
-        print(f"\n{RED}Error calling Gemini API: {e}{RESET}")
+        return f"AI Service Unavailable: {str(e)}"
 
 
 def generate_web_insight(data):
@@ -424,24 +416,25 @@ def generate_web_insight(data):
     Return ONLY the text. Use <span class=\"insight-highlight\">Subject/Topic</span> for the most critical term.
     """
 
-    try:
-        response = client.models.generate_content(
-            model="gemini-1.5-flash",
-            contents=prompt,
-            config={
-                "temperature": 0.8, # Slightly higher for more creative connections
-                "max_output_tokens": 150,
-                "top_p": 0.9,
-                "top_k": 40,
+    
+    response = client.models.generate_content(
+        model="gemini-2.0-flash",
+        contents=prompt,
+        config={
+            "temperature": 0.8, # Slightly higher for more creative connections
+           "max_output_tokens": 150,
+            "top_p": 0.9,
+            "top_k": 40,
             },
         )
 
-        insight = response.text.strip()
-        # Clean up any unwanted formatting
-        insight = insight.replace('"', "").replace("*", "").strip()
-        return insight
+    insight = response.text.strip()
+    # Clean up any unwanted formatting
+    insight = insight.replace('"', "").replace("*", "").strip()
+    return insight
 
-    except Exception:
+'''   except Exception:
+        return "Keep logging errors to unlock data-driven insights.":
         # Fallback to local logic (Smart Fallback) if AI fails (e.g. rate limit)
         try:
             top_subject = top_subjects[0][0] if top_subjects else "General"
@@ -453,9 +446,8 @@ def generate_web_insight(data):
             else:
                 target = top_subject
 
-            return f"Notice: High volume of <b>{top_error}</b> errors in <span class=\"insight-highlight\">{target}</span>. Review your fundamental definitions in this area before practicing more problems."
-        except:
-            return "Keep logging errors to unlock data-driven insights."
+        return f"Notice: High volume of <b>{top_error}</b> errors in <span class=\"insight-highlight\">{target}</span>. Review your fundamental definitions in this area before practicing more problems."'''
+
 
 
 def generate_pattern_diagnosis(data):
@@ -480,7 +472,7 @@ def generate_pattern_diagnosis(data):
     
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=intro_prompt,
             config={"temperature": 0.7, "max_output_tokens": 300}
         )
@@ -494,7 +486,6 @@ def generate_tactical_plan(data, exam_config=None):
     if not client:
         return "AI Module Offline."
 
-    # context construction
     # context construction
     if exam_config and exam_config.get("has_exam"):
         mode = "TARGETED BLITZ"
@@ -530,7 +521,7 @@ def generate_tactical_plan(data, exam_config=None):
     
     try:
         response = client.models.generate_content(
-            model="gemini-1.5-flash",
+            model="gemini-2.0-flash",
             contents=prompt,
             config={"temperature": 0.8, "max_output_tokens": 500}
         )
