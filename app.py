@@ -1,14 +1,25 @@
+import importlib
+import sys
 import time
 from datetime import date, datetime
+from pathlib import Path
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
-import analytics as an
-import database as db
-import importlib
-importlib.reload(an)
+from assets import styles
+
+# Add src to path
+src_path = Path(__file__).parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.append(str(src_path))
+
+from analysis import metrics as mt  # noqa: E402
+from services import ai_service as ai  # noqa: E402
+from services import db_service as db  # noqa: E402
+
+importlib.reload(mt)
 
 errors = db.load_data()
 DEFAULT_ERROR_TYPE = "Content Gap"
@@ -30,417 +41,7 @@ st.session_state["current_menu"] = menu_from_url
 
 st.set_page_config(page_title="Error Autopsy", layout="wide", page_icon="📝")
 
-
-def local_css():
-    st.markdown(
-        """
-        <style>
-        .st-emotion-cache-1r6slb0 {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 25px;
-            box-shadow: 0 7px 10px rgba(0, 0, 0, 0.05);
-        }
-        
-        /* This rounds the corners of text inputs */
-        .stTextInput > div > div > input {
-            border-radius: 10px;
-        }
-        
-        /* This styles the big headers */
-        h1, h2, h3 {
-            font-family: 'Helvetica Neue', sans-serif;
-            font-weight: 700;
-            color: #333;
-            margin-top: 0.4rem;
-            margin-bottom: 1.8rem;
-        }
-        
-        /* Sidebar Header Styling */
-        .sidebar-header-container {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 0.5rem;
-            padding: 1rem 0;
-        }
-        
-        .sidebar-logo-wrapper {
-            position: relative;
-            width: 50px;
-            height: 50px;
-            flex-shrink: 0;
-        }
-        
-        .sidebar-logo {
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #1a2a4a 0%, #2d4563 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 8px 20px rgba(26, 42, 74, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.2);
-        }
-        
-        .sidebar-logo svg {
-            width: 24px;
-            height: 24px;
-            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-        }
-        
-        .sidebar-title-group h1 {
-            margin: 0;
-            font-size: 1.4rem;
-            color: #1a1a1a;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-        }
-        
-        /* Menu Buttons Styling */
-        .sidebar-menu {
-            display: flex;
-            flex-direction: column;
-            gap: 0.8rem;
-            margin-top: 2rem;
-        }
-
-        .sidebar-menu form {
-            margin: 0;
-        }
-        
-        .menu-button {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            padding: 0.85rem 1.25rem;
-            background: transparent;
-            border: none !important;
-            cursor: pointer;
-            border-radius: 12px;
-            transition: all 0.2s ease;
-            position: relative;
-            font-weight: 700 !important;
-            width: 100%;
-            text-decoration: none !important;
-            color: inherit;
-        }
-
-        .menu-button:visited,
-        .menu-button:focus,
-        .menu-button:hover,
-        .menu-button:active {
-            text-decoration: none !important;
-            color: inherit;
-        }
-        
-        .menu-button:hover {
-            background-color: #e8e8e8;
-        }
-        
-        .menu-button svg {
-            width: 20px;
-            height: 20px;
-            color: #9ca3af;
-            transition: color 0.2s ease;
-        }
-        
-        .menu-button span {
-            color: #9ca3af;
-            font-size: 1.05rem;
-            font-weight: 700;
-            transition: color 0.2s ease;
-        }
-        
-        .menu-button.active {
-            background: #eeeeeeff !important;
-        }
-        
-        .menu-button.active svg {
-            color: #6366f1;
-        }
-        
-        .menu-button.active span {
-            color: #1a1a1a;
-            font-weight: 700;
-        }
-        
-        .menu-button .indicator {
-            position: absolute;
-            right: 1rem;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #6366f1;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-        
-        .menu-button.active .indicator {
-            opacity: 1;
-        }
-
-        /* Dashboard cards */
-        .metrics-row {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1.8rem;
-            width: 100%;
-            margin-top: 2rem;
-        }
-
-        .metric-card {
-            background: #eeeeeeff; /* uses theme secondaryBackgroundColor */
-            border-radius: 24px;
-            padding: 18px;
-            box-shadow: 0 15px 30px rgba(0,0,0,0.04);
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            min-height: 140px;
-        }
-
-        .metric-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .metric-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            display: grid;
-            place-items: center;
-            font-size: 18px;
-            font-weight: 700;
-            color: #1a1a1a;
-        }
-
-        .metric-pill {
-            background: #e8f9f0;
-            color: #169c5b;
-            padding: 6px 10px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 700;
-        }
-
-        .metric-label {
-            letter-spacing: 0.08em;
-            font-size: 0.85rem;
-            font-weight: 700;
-            color: #8a94a6;
-            text-transform: uppercase;
-        }
-
-        .metric-value {
-            font-size: 2rem;
-            font-weight: 800;
-            color: #0f172a;
-            line-height: 1.1;
-        }
-        /* Pill state colors */
-        .pill-positive { background: #e8f9f0; color: #16a34a; }
-        .pill-negative { background: #fee2e2; color: #b91c1c; }
-
-        /* Inner shadow override for cards */
-        .metric-card {
-            box-shadow:
-                inset 0 10px 18px rgba(255,255,255,0.55),
-                inset 0 -8px 18px rgba(0,0,0,0.05),
-                0 15px 30px rgba(0,0,0,0.04);
-            border: 1px solid rgba(0,0,0,0.03);
-        }
-
-        /* Chart card - clean white background */
-        .chart-card {
-            background: #EEEEEE;
-            border-radius: 24px;
-            padding: 28px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-            min-height: 480px;
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 1.5rem;
-        }
-
-        .chart-title {
-            font-size: 1.15rem;
-            font-weight: 800;
-            color: #0f172a;
-            margin: 0 0 0.4rem 0;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-        }
-
-        .chart-subtitle {
-            font-size: 0.9rem;
-            color: #94a3b8;
-            font-weight: 500;
-            font-style: italic;
-            margin: 0;
-        }
-
-        /* Navigation dots */
-        .chart-nav-dots {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .nav-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #cbd5e1;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: none;
-            padding: 0;
-        }
-
-        .nav-dot.active {
-            background: #0f172a;
-            width: 10px;
-            height: 10px;
-        }
-
-        .nav-dot:hover {
-            background: #64748b;
-        }
-
-        /* AI Insight card - dark background */
-        .insight-card {
-            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 24px;
-            padding: 32px 28px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            min-height: 420px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .insight-title {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #eeeeee;
-            margin: 0 0 0.2rem 0;
-            font-style: bold;
-            position: relative;
-            display: inline-block;
-            padding-bottom: 0.3rem;
-        }
-
-        .insight-title::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 3px;
-            background: #6366f1;
-            border-radius: 2px;
-        }
-
-        .insight-content {
-            color: #cbd5e1;
-            font-size: 0.95rem;
-            line-height: 1.75;
-            margin-top: 1.5rem;
-            flex-grow: 1;
-        }
-
-        .insight-highlight {
-            color: #818cf8;
-            font-weight: 700;
-        }
-
-        .action-button {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
-            background: white;
-            color: #0f172a;
-            padding: 0.9rem 1.6rem;
-            border-radius: 12px;
-            font-weight: 700;
-            font-size: 0.9rem;
-            text-decoration: none;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            border: none;
-            margin-top: auto;
-        }
-
-        .action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.25);
-        }
-        </style>
-        </style>
-        
-        <script>
-        function updateMenuButtons() {
-            let currentMenu = '"""
-        + st.session_state.current_menu
-        + """';
-            
-            const buttonMap = {
-                'Dashboard': 'Dashboard',
-                'Log Mistake': 'Log Error',
-                'IA Coach': 'Coach AI',
-                'History': 'History'
-            };
-            
-            const buttons = document.querySelectorAll('.menu-button');
-            buttons.forEach(button => {
-                const span = button.querySelector('span');
-                const indicator = button.querySelector('.indicator');
-                
-                if (!span) return;
-                
-                const text = span.innerText.trim();
-                let isActive = false;
-                
-                for (let btnText in buttonMap) {
-                    if (text === btnText && buttonMap[btnText] === currentMenu) {
-                        isActive = true;
-                        break;
-                    }
-                }
-                
-                if (isActive) {
-                    button.classList.add('active');
-                    button.style.background = '#eeeeeeff';
-                    span.style.color = '#1a1a1a';
-                    button.querySelector('svg').style.color = '#6366f1';
-                    indicator.style.opacity = '1';
-                } else {
-                    button.classList.remove('active');
-                    button.style.background = 'transparent';
-                    span.style.color = '#9ca3af';
-                    button.querySelector('svg').style.color = '#9ca3af';
-                    indicator.style.opacity = '0';
-                }
-            });
-        }
-
-        document.addEventListener('DOMContentLoaded', updateMenuButtons);
-        window.addEventListener('load', updateMenuButtons);
-
-        </script>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-local_css()
+styles.local_css()
 
 
 def parse_date_str(d: str):
@@ -542,7 +143,7 @@ def aggregate_by_month_all(data):
 
 def generate_mini_insight(data):
     # enerate AI-powered insight based on last 2 months of error data.
-    return an.generate_web_insight(data)
+    return ai.generate_web_insight(data)
 
 
 # Custom sidebar with professional design
@@ -657,55 +258,27 @@ with st.sidebar:
 # Blank dashboard placeholder; other pages can be added later
 if menu == "Dashboard":
     # Custom CSS to make dashboard buttons (Arrow, Back) look clean/transparent
-    st.markdown(
-        """
-        <style>
-        /* Force transparent buttons for both "Back" and the Chart Toggle */
-        /* We target the specific data-testid for stButton to ensure we hit them */
-        
-        div[data-testid="stButton"] > button {
-            background-color: transparent !important;
-            border: 1px solid transparent !important; /* Ensure border is transparent */
-            box-shadow: none !important;
-            color: #64748b !important;
-            font-weight: 600 !important;
-            padding: 0px 8px !important;
-            transition: all 0.2s ease;
-        }
+    # Styles moved to assets/style.css
 
-        /* Hover state */
-        div[data-testid="stButton"] > button:hover {
-            color: #6366f1 !important;
-            background-color: rgba(99, 102, 241, 0.1) !important; /* Very subtle hover bg */
-            border-color: transparent !important;
-        }
-
-        /* Active/Focus state */
-        div[data-testid="stButton"] > button:active, 
-        div[data-testid="stButton"] > button:focus {
-            color: #4338ca !important;
-            background-color: transparent !important;
-            border-color: transparent !important;
-            box-shadow: none !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    
     st.title("Your Progress")
 
     # Time Filter Widget (Global)
-    filter_options = ["This Month", "Last 2 Months", "Last 4 Months", "Last 6 Months", "All Time"]
-    
+    filter_options = [
+        "This Month",
+        "Last 2 Months",
+        "Last 4 Months",
+        "Last 6 Months",
+        "All Time",
+    ]
+
     # Place filter at the top, aligned left or with columns
     col_filter_global, _ = st.columns([2, 5])
     with col_filter_global:
         selected_filter = st.selectbox(
-            "Time Period", 
-            options=filter_options, 
+            "Time Period",
+            options=filter_options,
             index=filter_options.index(st.session_state.get("time_filter", "All Time")),
-            key="time_filter_select"
+            key="time_filter_select",
         )
         # Update session state
         st.session_state.time_filter = selected_filter
@@ -716,23 +289,23 @@ if menu == "Dashboard":
         "Last 2 Months": 2,
         "Last 4 Months": 4,
         "Last 6 Months": 6,
-        "All Time": None
+        "All Time": None,
     }
     months_filter = filter_map[selected_filter]
-    
+
     # Filter the data globally for the dashboard
-    dashboard_filtered_errors = an.filter_data_by_range(errors, months_filter)
+    dashboard_filtered_errors = mt.filter_data_by_range(errors, months_filter)
 
     # Calculate metrics on the dashboard_filtered_errors
     total_errors_count = len(dashboard_filtered_errors)
-    
+
     # Calculate most frequent subject
     subj_counts = {}
     for r in dashboard_filtered_errors:
         s = r.get("subject", "Unknown") or "Unknown"
         subj_counts[s] = subj_counts.get(s, 0) + 1
     top_subj = max(subj_counts.items(), key=lambda x: x[1])[0] if subj_counts else "—"
-    
+
     # Calculate most frequent type
     type_counts = {}
     for r in dashboard_filtered_errors:
@@ -741,7 +314,9 @@ if menu == "Dashboard":
     top_tp = max(type_counts.items(), key=lambda x: x[1])[0] if type_counts else "—"
 
     # Calculate Avoidable Errors % (Attention Detail + Interpretation)
-    avoidable_count = type_counts.get("Attention Detail", 0) + type_counts.get("Interpretation", 0)
+    avoidable_count = type_counts.get("Attention Detail", 0) + type_counts.get(
+        "Interpretation", 0
+    )
     if total_errors_count > 0:
         avoidable_pct = (avoidable_count / total_errors_count) * 100
     else:
@@ -749,7 +324,7 @@ if menu == "Dashboard":
 
     # Hide delta for now as it makes less sense on variable timeframes
     pill_class = "pill-positive"
-    
+
     # Render cards side-by-side (Now 4 columns)
     col1, col2, col3, col4 = st.columns(4)
 
@@ -798,7 +373,7 @@ if menu == "Dashboard":
         """,
         unsafe_allow_html=True,
     )
-    
+
     col4.markdown(
         f"""
         <div class="metric-card">
@@ -818,11 +393,10 @@ if menu == "Dashboard":
 
     # Second row: Chart card and AI Insight card
     st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
-    
+
     # (Removed local filter widget)
 
     chart_errors = dashboard_filtered_errors
-
 
     chart_col, insight_col = st.columns([2, 1])
 
@@ -833,7 +407,7 @@ if menu == "Dashboard":
 
         current_view = st.session_state.chart_view
         subtitles = ["Analysis by discipline", "Analysis by topic", "Timeline overview"]
-        
+
         # Ensure view index is within bounds (if we added a new view)
         if current_view >= len(subtitles):
             current_view = 0
@@ -866,7 +440,9 @@ if menu == "Dashboard":
                 ).sort_values("Errors", ascending=False)
 
                 # Create selection interval
-                select_subject = alt.selection_point(name="select_subject", fields=["Subject"], on="click")
+                select_subject = alt.selection_point(
+                    name="select_subject", fields=["Subject"], on="click"
+                )
 
                 chart = (
                     alt.Chart(df)
@@ -874,19 +450,30 @@ if menu == "Dashboard":
                     .encode(
                         x=alt.X("Subject:N", title=None),
                         y=alt.Y("Errors:Q", title=None),
-                        opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3))
+                        opacity=alt.condition(
+                            select_subject, alt.value(1), alt.value(0.3)
+                        ),
                     )
                     .add_params(select_subject)
                     .properties(height=320)
                     .configure_view(strokeOpacity=0)
                     .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
                 )
-                
+
                 # Render chart with selection event
-                event = st.altair_chart(chart, use_container_width=True, on_select="rerun", key="subject_chart_select")
-                
+                event = st.altair_chart(
+                    chart,
+                    use_container_width=True,
+                    on_select="rerun",
+                    key="subject_chart_select",
+                )
+
                 # Handle selection
-                if event and "selection" in event and "select_subject" in event["selection"]:
+                if (
+                    event
+                    and "selection" in event
+                    and "select_subject" in event["selection"]
+                ):
                     selection_list = event["selection"]["select_subject"]
                     if selection_list:
                         # Extract the subject name (dictionaries in list)
@@ -894,25 +481,27 @@ if menu == "Dashboard":
                         selected_subj_name = selection_list[0].get("Subject")
                         if selected_subj_name:
                             st.session_state.drill_down_subject = selected_subj_name
-                            st.session_state.chart_view = 1 # Switch to Topic View
+                            st.session_state.chart_view = 1  # Switch to Topic View
                             st.rerun()
 
-        elif current_view == 1: # Topic Analysis
+        elif current_view == 1:  # Topic Analysis
             # Check for drill-down filter
             target_subject = st.session_state.get("drill_down_subject")
-            
+
             # If drilling down, filter the chart_errors first
             if target_subject:
                 # Show active filter UI with cleaner styling
                 # Using a narrow column for the button to keep it compact
                 c_back, c_text = st.columns([1.5, 8])
-                
+
                 with c_back:
-                    if st.button("← Back", key="clear_drill_down", help="Clear Subject Filter"):
+                    if st.button(
+                        "← Back", key="clear_drill_down", help="Clear Subject Filter"
+                    ):
                         st.session_state.drill_down_subject = None
-                        st.session_state.chart_view = 0 # Go back to Subject View
+                        st.session_state.chart_view = 0  # Go back to Subject View
                         st.rerun()
-                
+
                 with c_text:
                     # Styled text matching dashboard aesthetics
                     st.markdown(
@@ -922,36 +511,40 @@ if menu == "Dashboard":
                             <span style="color:#6366f1; font-weight:700; font-size:1rem; margin-left:4px;">{target_subject}</span>
                         </div>
                         """,
-                        unsafe_allow_html=True
+                        unsafe_allow_html=True,
                     )
-                
+
                 # Filter data to only this subject
-                filtered_topic_errors = [e for e in chart_errors if e.get("subject") == target_subject]
+                filtered_topic_errors = [
+                    e for e in chart_errors if e.get("subject") == target_subject
+                ]
                 topic_data = aggregate_by_topic(filtered_topic_errors)
             else:
                 # Normal behavior
                 topic_data = aggregate_by_topic(chart_errors)
-            
+
             if not topic_data:
-                 st.info(f"No data available for {selected_filter}. Log some errors!")
+                st.info(f"No data available for {selected_filter}. Log some errors!")
             else:
-                 # Limit to top 10 topics to avoid clutter
-                 sorted_topics = sorted(topic_data.items(), key=lambda x: x[1], reverse=True)[:10]
-                 df = pd.DataFrame(sorted_topics, columns=["Topic", "Errors"])
-                 
-                 chart = (
+                # Limit to top 10 topics to avoid clutter
+                sorted_topics = sorted(
+                    topic_data.items(), key=lambda x: x[1], reverse=True
+                )[:10]
+                df = pd.DataFrame(sorted_topics, columns=["Topic", "Errors"])
+
+                chart = (
                     alt.Chart(df)
-                    .mark_bar(color="#6366f1") 
+                    .mark_bar(color="#6366f1")
                     .encode(
                         x=alt.X("Topic:N", title=None, sort="-y"),
                         y=alt.Y("Errors:Q", title=None),
-                        tooltip=["Topic", "Errors"]
+                        tooltip=["Topic", "Errors"],
                     )
                     .properties(height=320)
                     .configure_view(strokeOpacity=0)
                     .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
-                 )
-                 st.altair_chart(chart, use_container_width=True)
+                )
+                st.altair_chart(chart, use_container_width=True)
 
         else:
             month_data = aggregate_by_month_all(chart_errors)
@@ -982,123 +575,107 @@ if menu == "Dashboard":
         # We need to handle this BEFORE displaying logic to ensure it updates instantly
         qp = st.query_params
         if qp.get("refresh_insight") == "true":
-             st.session_state.dashboard_insight = an.generate_mini_insight(chart_errors)
-        
+            st.session_state.dashboard_insight = ai.generate_mini_insight(chart_errors)
+
         # Check if we already have a cached insight for this session
-        if "dashboard_insight" not in st.session_state or st.session_state.dashboard_insight is None or str(st.session_state.dashboard_insight) == "None":
-             st.session_state.dashboard_insight = an.generate_mini_insight(chart_errors)
-        
+        if (
+            "dashboard_insight" not in st.session_state
+            or st.session_state.dashboard_insight is None
+            or str(st.session_state.dashboard_insight) == "None"
+        ):
+            st.session_state.dashboard_insight = ai.generate_web_insight(chart_errors)
+
         mini_insight = st.session_state.dashboard_insight
-        
+
         # Fallback for display
         if mini_insight is None or str(mini_insight) == "None":
-             mini_insight = "Insight generation failed. Please check API Key or Logs."
-        
+            mini_insight = "Insight generation failed. Please check API Key or Logs."
+
         st.markdown(
             f"""
             <div class="insight-card">
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3 class="insight-title" style="color: #eeeeee; margin:0;">AI Insight</h3>
+                    <h3 class="insight-title" style="color: #eeeeee; margin:0;">Insight</h3>
                 </div>
                 <div class="insight-content">
                     {mini_insight}
                 </div>
-                <form action="/" method="get">
-                     <button name="refresh_insight" value="true" type="submit" style="
-                        background: rgba(255,255,255,0.1); 
-                        border: none; 
-                        color: white; 
-                        padding: 4px 8px; 
-                        border-radius: 4px; 
-                        cursor: pointer; 
-                        font-size: 0.75rem;
-                        margin-top: 10px;
-                        display: flex;
-                        align-items: center;
-                        gap: 6px;
-                     ">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                             <path d="M23 4v6h-6"></path>
-                             <path d="M1 20v-6h6"></path>
-                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                        </svg>
-                        Refresh Insight
-                     </button>
-                    <!-- Keep menu context -->
-                     <input type="hidden" name="menu" value="Dashboard" />
-                </form>
+
                 
 
             </div>
             """,
             unsafe_allow_html=True,
         )
-        
-
 
     # -------------------------------------------------------------------------
     # NEW SECTION: Error Breakdown by Type (Pie Chart) with separate filter
     st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
-    
+
     # Section Header
     st.markdown(
         """
         <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Breakdown</h3>
         <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">Distribution by mistake type</p>
         """,
-        unsafe_allow_html=True
+        unsafe_allow_html=True,
     )
-    
+
     # Container for Filter + Chart
     # Use a card-like style or just clean layout
     # Container for Filter + Chart
     # Use a 3/5 column layout as requested
     col_content, col_spacer = st.columns([3, 2])
-    
+
     # Container for Chart (3/5 layout)
     col_content, col_spacer = st.columns([3, 2])
-    
+
     with col_content:
         # (Removed local filter widget)
 
         # Use global filtered data
         pie_chart_errors = dashboard_filtered_errors
-        
+
         # Generate Data
-        type_data = an.count_error_types(pie_chart_errors)
-        
+        type_data = mt.count_error_types(pie_chart_errors)
+
         if not type_data:
-             st.info(f"No data available for {selected_filter}.")
+            st.info(f"No data available for {selected_filter}.")
         else:
             df_pie = pd.DataFrame(list(type_data.items()), columns=["Type", "Count"])
-            
+
             # Custom Palette from user image
             # Midnight Violet, Slate Blue, Lavender Purple, Soft Periwinkle, Pale Slate, Linen
-            custom_colors = ["#242038", "#725AC1", "#8070C5", "#8D86C9", "#CAC4CE", "#F7ECE1"]
-            
-            base = alt.Chart(df_pie).encode(
-                theta=alt.Theta("Count", stack=True)
-            )
-            
+            custom_colors = [
+                "#242038",
+                "#725AC1",
+                "#8070C5",
+                "#8D86C9",
+                "#CAC4CE",
+                "#F7ECE1",
+            ]
+
+            base = alt.Chart(df_pie).encode(theta=alt.Theta("Count", stack=True))
+
             pie = base.mark_arc(outerRadius=120, innerRadius=0).encode(
                 color=alt.Color(
-                    "Type", 
+                    "Type",
                     scale=alt.Scale(range=custom_colors),
-                    legend=alt.Legend(title="Error Type")
+                    legend=alt.Legend(title="Error Type"),
                 ),
                 order=alt.Order("Count", sort="descending"),
-                tooltip=["Type", "Count"]
+                tooltip=["Type", "Count"],
             )
-            
+
             text = base.mark_text(radius=140).encode(
                 text=alt.Text("Count"),
                 order=alt.Order("Count", sort="descending"),
-                color=alt.value("#0f172a") 
+                color=alt.value("#0f172a"),
             )
-            
+
             # Combine
             pie_chart = (pie + text).properties(height=350)
-            
+
             st.altair_chart(pie_chart, use_container_width=True)
 
 elif menu == "Log Error":
@@ -1133,7 +710,7 @@ elif menu == "Log Error":
                 ],
                 key="error_type_select",
             )
-        
+
         description = st.text_area(
             "Description (Optional)",
             placeholder="Why do you think this happened?",
@@ -1146,16 +723,18 @@ elif menu == "Log Error":
             if not subject or not topic:
                 st.error("Please fill in both Subject and Topic.")
             else:
-                an.log_error(
+                db.log_error(
                     errors,
                     subject,
                     topic,
                     error_type,
                     description,
-                    str(date_input),
+                    date_input,
                 )
                 st.session_state.show_success = True
-                st.session_state.success_message = f"Error in {subject} ({topic}) logged!"
+                st.session_state.success_message = (
+                    f"Error in {subject} ({topic}) logged!"
+                )
                 st.session_state.reset_form = True  # Trigger reset on next run
                 st.rerun()
 
@@ -1170,303 +749,101 @@ elif menu == "Coach AI":
     # ---------------------------------------------------------
     # 1. HIGH-FIDELITY CSS INJECTION
     # ---------------------------------------------------------
-    st.markdown("""
-        <style>
-            /* Global Font Override */
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-            
-            html, body, [class*="css"] {
-                font-family: 'Inter', 'Helvetica Neue', sans-serif;
-            }
-            
-            /* Custom Pill Nav */
-            .nav-pill {
-                display: inline-block;
-                padding: 8px 16px;
-                border-radius: 99px;
-                font-size: 0.8rem;
-                font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.05em;
-                cursor: pointer;
-                transition: all 0.2s ease;
-                border: 1px solid transparent;
-                margin-right: 8px;
-            }
-            .nav-pill.active {
-                background-color: #0f172a;
-                color: white;
-                box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-            }
-            .nav-pill.inactive {
-                background-color: white;
-                color: #64748b;
-                border: 1px solid #e2e8f0;
-            }
-            .nav-pill.inactive:hover {
-                background-color: #f8fafc;
-                border-color: #cbd5e1;
-                color: #334155;
-            }
-            
-            /* "Ghost" Button Style (as seen in screenshots) */
-            .ghost-btn {
-                background: white;
-                border: 1px solid #e2e8f0;
-                color: #0f172a;
-                font-weight: 600;
-                border-radius: 8px;
-                padding: 0.5rem 1rem;
-                font-size: 0.9rem;
-                transition: all 0.2s;
-            }
-            .ghost-btn:hover {
-                background: #f8fafc;
-                border-color: #cbd5e1;
-            }
-            
-            /* Dashed Empty State */
-            .dashed-container {
-                border: 2px dashed #e2e8f0;
-                border-radius: 24px;
-                background-color: #ffffff;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                text-align: center;
-                padding: 6rem 2rem;
-                min-height: 400px;
-                margin-top: 1.5rem;
-            }
-            
-            /* Configuration Modal Style */
-            .config-card {
-                background: white;
-                border: 1px solid #e2e8f0;
-                border-radius: 24px;
-                padding: 2rem;
-                box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-                max-width: 600px;
-                margin: 2rem auto;
-            }
-            
-            /* Hide Default Streamlit Elements */
-            [data-testid="stHeader"] { visibility: hidden; }
-        </style>
-    """, unsafe_allow_html=True)
+    # Styles moved to assets/style.css
 
     # ---------------------------------------------------------
-    # 2. CUSTOM NAVIGATION (State-Based)
+    # 2. DIAGNOSTIC ENGINE VIEW (Default)
     # ---------------------------------------------------------
-    # Init state for sub-view
-    if "coach_view" not in st.session_state:
-        st.session_state.coach_view = "diagnostic"
 
-    # Custom Top Bar
-    c_nav, c_actions = st.columns([1, 1])
-    
-    with c_nav:
-        # We use columns to simulate the pill buttons side-by-side
-        # To make them strictly clickable, we use st.button but heavily styled
-        # Or better: Standard st.pills if available? It's new in very recent streamlit. 
-        # Let's stick to buttons for stability, or better yet, a segmented control.
-        # Streamlit has `st.segmented_control` in 1.40.0+. I'll assume we are on standard.
-        # Simplest approach: Two columns with buttons and conditionally render style.
-        
-        n1, n2, n_spacer = st.columns([1, 1, 3])
-        if n1.button("AI DIAGNOSTIC ENGINE", key="nav_diag", 
-                     type="primary" if st.session_state.coach_view == "diagnostic" else "secondary",
-                     use_container_width=True):
-            st.session_state.coach_view = "diagnostic"
-            st.rerun()
-            
-        if n2.button("STUDY PLAN", key="nav_plan", 
-                     type="primary" if st.session_state.coach_view == "plan" else "secondary",
-                     use_container_width=True):
-            st.session_state.coach_view = "plan"
-            st.rerun()
+    st.markdown(
+        """
+        <h1 class="diagnostic-header">
+            AI DIAGNOSTIC ENGINE
+        </h1>
+        <p class="diagnostic-subtext">
+            Scanning behavioral data to identify neuro-cognitive bottlenecks.
+        </p>
+    """,
+        unsafe_allow_html=True,
+    )
 
-    # ---------------------------------------------------------
-    # 3. DIAGNOSTIC ENGINE VIEW
-    # ---------------------------------------------------------
-    if st.session_state.coach_view == "diagnostic":
-        st.markdown("""
-            <h1 style="font-family:'Helvetica Neue'; font-weight:900; font-style:italic; font-size:3rem; letter-spacing:-0.04em; margin-bottom:0; line-height:1.1;">
-                AI DIAGNOSTIC ENGINE
-            </h1>
-            <p style="color:#64748b; font-size:1.1rem; font-weight:500; margin-top:0.5rem; margin-bottom:2rem;">
-                Scanning behavioral data to identify neuro-cognitive bottlenecks.
-            </p>
-        """, unsafe_allow_html=True)
-        
-        # Controls Row
-        c_filter, c_btn = st.columns([1, 4])
-        with c_filter:
-            time_scope = st.selectbox("Scope", ["Last 30 Days", "Last 60 Days"], label_visibility="collapsed")
-        with c_btn:
-            # Right align the button
-            st.markdown(
-                """
-                <div style="text-align: right;">
-                    <!-- Use Streamlit form to capture this action properly -->
-                </div>
-                """, unsafe_allow_html=True
-            )
-            # Just standard button for now, styled via primary type
-            run_diag = st.button("RUN DEEP DIAGNOSIS", type="primary", use_container_width=False)
+    # Controls Row
+    c_filter, c_btn = st.columns([1, 4])
+    with c_filter:
+        time_scope = st.selectbox(
+            "Scope", ["Last 30 Days", "Last 60 Days"], label_visibility="collapsed"
+        )
+    with c_btn:
+        # Fake label to align with the "Scope" label in the other column
+        st.markdown(
+            "<div style='margin-bottom: 0.2rem; font-size: 0.8rem; visibility: hidden;'>Spacer</div>",
+            unsafe_allow_html=True,
+        )
+        # Just standard button for now, styled via primary type
+        run_diag = st.button(
+            "RUN DEEP DIAGNOSIS", type="primary", use_container_width=False
+        )
 
-        # Logic
-        if run_diag:
-             # Just like before
-             days = 30 if "30" in time_scope else 60
-             filtered_data = an.filter_data_by_range(errors, months=None) 
-             cutoff = date.today() - pd.Timedelta(days=days)
-             filtered_diag_data = [e for e in errors if datetime.strptime(e['date'], "%d-%m-%Y").date() >= cutoff]
-             
-             with st.spinner("Analyzing neural patterns..."):
-                 diagnosis = an.generate_pattern_diagnosis(filtered_diag_data)
-                 st.session_state.latest_diagnosis = diagnosis
-                 st.session_state.diagnosis_date = time_scope
+    # Logic
+    if run_diag:
+        # Just like before
+        days = 30 if "30" in time_scope else 60
+        filtered_data = mt.filter_data_by_range(errors, months=None)
+        cutoff = date.today() - pd.Timedelta(days=days)
+        filtered_diag_data = [
+            e
+            for e in errors
+            if datetime.strptime(e["date"], "%d-%m-%Y").date() >= cutoff
+        ]
 
-        # DISPLAY AREA
-        if "latest_diagnosis" in st.session_state and st.session_state.get('diagnosis_date') == time_scope:
-             # RENDER ACTIVE CARD (We'll reuse the style from before but refined)
-             date_scope = st.session_state.get('diagnosis_date', 'Unknown')
-             diagnosis_text = st.session_state.latest_diagnosis
-             st.markdown(f"""
-                 <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 3rem; box-shadow: 0 10px 30px -10px rgba(0,0,0,0.08); margin-top: 1rem;">
+        with st.spinner("Analyzing neural patterns..."):
+            diagnosis = ai.generate_pattern_diagnosis(filtered_diag_data)
+            st.session_state.latest_diagnosis = diagnosis
+            st.session_state.diagnosis_date = time_scope
+
+    # DISPLAY AREA
+    if (
+        "latest_diagnosis" in st.session_state
+        and st.session_state.get("diagnosis_date") == time_scope
+    ):
+        # RENDER ACTIVE CARD (We'll reuse the style from before but refined)
+        date_scope = st.session_state.get("diagnosis_date", "Unknown")
+        diagnosis_text = st.session_state.latest_diagnosis
+        st.markdown(
+            f"""
+                <div class="neural-card">
                     <!-- Header -->
-                    <div style="display:flex; justify-content:space-between; margin-bottom:2rem;">
-                        <span style="background:#fef3c7; color:#d97706; font-weight:800; font-size:0.75rem; padding:6px 14px; border-radius:99px; text-transform:uppercase; letter-spacing:0.05em;">Neural Insight</span>
-                        <span style="color:#94a3b8; font-weight:600; font-size:0.9rem;">{date_scope}</span>
+                    <div class="neural-header">
+                        <span class="neural-badge">Neural Insight</span>
+                        <span class="neural-date">{date_scope}</span>
                     </div>
                     <!-- Content -->
-                    <div style="font-size:1.4rem; line-height:1.6; font-weight:500; color:#1e293b; font-family:'Helvetica Neue';">
+                    <div class="neural-content">
                         {diagnosis_text}
                     </div>
                     <!-- Footer -->
-                    <div style="margin-top:2.5rem; padding-top:2rem; border-top:1px solid #f1f5f9;">
-                         <div style="font-size:0.8rem; text-transform:uppercase; color:#64748b; font-weight:700; letter-spacing:0.05em;">Diagnosis Confidence: <span style="color:#10b981;">98.2%</span></div>
+                    <div class="neural-footer">
+                        <div class="neural-confidence">Diagnosis Confidence: <span class="neural-confidence-value">98.2%</span></div>
                     </div>
-                 </div>
-             """, unsafe_allow_html=True)
-        else:
-            # IDLE STATE
-            st.markdown("""
-                <div class="dashed-container">
-                    <div style="width:72px; height:72px; background:#f8fafc; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
+                </div>
+            """,
+            unsafe_allow_html=True,
+        )
+    else:
+        # IDLE STATE
+        st.markdown(
+            """
+                <div class="dashed-container idle-container">
+                    <div class="idle-icon-circle">
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                     </div>
-                    <h3 style="color:#0f172a; font-weight:700; font-size:1.5rem; margin:0 0 0.5rem 0;">Neural Link Idle</h3>
-                    <p style="color:#64748b; max-width:400px; line-height:1.6;">Request a diagnosis to allow the AI to scan your recent error descriptions and performance trends.</p>
+                    <h3 class="idle-title">Neural Link Idle</h3>
+                    <p class="idle-text">Request a diagnosis to allow the AI to scan your recent error descriptions and performance trends.</p>
                 </div>
-            """, unsafe_allow_html=True)
+            """,
+            unsafe_allow_html=True,
+        )
 
 
-    # ---------------------------------------------------------
-    # 4. STUDY PLAN VIEW
-    # ---------------------------------------------------------
-    elif st.session_state.coach_view == "plan":
-         st.markdown("""
-            <div style="display:flex; justify-content:space-between; align-items:end; margin-bottom:2rem;">
-                <div>
-                    <h1 style="font-family:'Helvetica Neue'; font-weight:900; font-style:italic; font-size:3rem; letter-spacing:-0.04em; margin-bottom:0; line-height:1.1;">
-                        STUDY PLAN
-                    </h1>
-                    <p style="color:#64748b; font-size:1.1rem; font-weight:500; margin-top:0.5rem;">
-                        High-retention schedules mapping your path to mastery.
-                    </p>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
-         
-         # "Generate New Plan" Button (Top Right)
-         c_main, c_new = st.columns([4, 1])
-         with c_new:
-             if st.button("+ GENERATE NEW PLAN", use_container_width=True):
-                 st.session_state.show_config_modal = True
-         
-         # Logic for Modal
-         if st.session_state.get("show_config_modal", False):
-             # RENDER CONFIG FORM
-             with st.container():
-                 st.markdown("""
-                    <div class="config-card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem;">
-                             <h3 style="margin:0; font-weight:800; font-size:1.5rem;">CONFIGURATIONS</h3>
-                        </div>
-                 """, unsafe_allow_html=True)
-                 
-                 # 1. Exam Toggle
-                 st.markdown("<label style='font-size:0.8rem; font-weight:700; color:#64748b; text-transform:uppercase;'>Do you have an upcoming exam?</label>", unsafe_allow_html=True)
-                 has_exam = st.radio("Has Exam", ["YES", "NO, GENERAL GROWTH"], horizontal=True, label_visibility="collapsed")
-                 
-                 st.write("")
-                 st.write("")
-                 
-                 # 2. Study Days (Standard Multi-Select or Styled Buttons)
-                 st.markdown("<label style='font-size:0.8rem; font-weight:700; color:#64748b; text-transform:uppercase;'>Select Study Days</label>", unsafe_allow_html=True)
-                 selected_days = st.pills("Days", ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"], selection_mode="multi", default=["MON", "WED", "FRI"])
-                 
-                 # 3. Exam Details (Conditional)
-                 exam_config = {}
-                 if has_exam == "YES":
-                     st.write("")
-                     c1, c2 = st.columns(2)
-                     with c1:
-                         sub = st.text_input("Subject", placeholder="e.g. Quantum Physics")
-                     with c2:
-                         dt = st.date_input("Exam Date")
-                     
-                     topics = st.text_area("Target Topics", placeholder="What specific topics will be covered?")
-                     
-                     exam_config = {
-                         "has_exam": True, 
-                         "subject": sub, 
-                         "date": str(dt), 
-                         "topics": topics,
-                         "study_days": selected_days
-                     }
-                 else:
-                     exam_config = {
-                         "has_exam": False,
-                         "study_days": selected_days
-                     }
-                     
-                 st.write("")
-                 st.write("")
-                 
-                 if st.button("GENERATE INTELLIGENCE PLAN", type="primary", use_container_width=True):
-                      with st.spinner("Constructing tactical matrix..."):
-                           plan = an.generate_tactical_plan(errors, exam_config)
-                           st.session_state.tactical_plan = plan
-                           st.session_state.show_config_modal = False # Close modal
-                           st.rerun()
-                           
-                 st.markdown("</div>", unsafe_allow_html=True) # End card
-         
-         # ACTIVE PLAN DISPLAY
-         if "tactical_plan" in st.session_state and not st.session_state.get("show_config_modal", False):
-              plan_content = st.session_state.tactical_plan
-              st.markdown(f"""
-                 <div style="background-color: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 3rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); margin-top:2rem;">
-                      <div style="font-family: 'Helvetica Neue', sans-serif; line-height: 1.8; color: #334155;">
-                        {plan_content}
-                      </div>
-                 </div>
-              """, unsafe_allow_html=True)
-         elif not st.session_state.get("show_config_modal", False):
-              # IDLE STATE
-              st.markdown("""
-                <div class="dashed-container">
-                    <div style="width:72px; height:72px; background:#f8fafc; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:1.5rem;">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    </div>
-                    <h3 style="color:#0f172a; font-weight:700; font-size:1.5rem; margin:0 0 0.5rem 0;">Awaiting Parameters</h3>
-                    <p style="color:#64748b; max-width:400px; line-height:1.6;">Configure your exam details or weekly goals to generate a personalized trajectory.</p>
-                </div>
-            """, unsafe_allow_html=True)
 elif menu == "History":
     st.empty()
-

@@ -118,9 +118,8 @@ def main():
                 print("\nAnalytics Hub")
                 print("1. View Graphs")
                 print("2. Analyze my Patterns (AI)")
-                print("3. Generate Study Plan (AI)")
-                print("4. Quick Summary (text)")
-                print("5. Back to the Main Menu")
+                print("3. Quick Summary (text)")
+                print("4. Back to the Main Menu")
                 sub_option = input("\nChoose analysis type: ")
 
                 if sub_option == "1":
@@ -128,10 +127,8 @@ def main():
                 elif sub_option == "2":
                     anl.analyze_patterns(errors)
                 elif sub_option == "3":
-                    anl.study_plan(errors)
-                elif sub_option == "4":
                     anl.quick_summary(errors)
-                elif sub_option == "5":
+                elif sub_option == "4":
                     break
                 else:
                     print("Invalid option.")
