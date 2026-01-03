@@ -1,11 +1,10 @@
 import os
 from datetime import datetime
 
-from dotenv import load_dotenv
-from google import genai
-
 import analytics as anl
 import database as db
+from dotenv import load_dotenv
+from google import genai
 
 BOLD = "\033[1m"
 RESET = "\033[0m"
