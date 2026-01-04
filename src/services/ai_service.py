@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 from google import genai
 
-from analysis import metrics as mt
+from src.analysis import metrics as mt
 
 RESET = "\033[0m"
 RED = "\033[91m"

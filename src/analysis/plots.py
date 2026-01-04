@@ -2,7 +2,8 @@ from datetime import datetime
 
 import altair as alt
 import pandas as pd
-from settings import COLOR_PRIMARY
+
+primary_color = "#4e4a5aff"
 
 
 def chart_subjects(suject_data):
@@ -19,7 +20,7 @@ def chart_subjects(suject_data):
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=COLOR_PRIMARY)
+        .mark_bar(color=primary_color)
         .encode(
             x=alt.X("Subject:N", title=None),
             y=alt.Y("Errors:Q", title=None),
@@ -41,7 +42,7 @@ def chart_topics(topic_data):
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=COLOR_PRIMARY)
+        .mark_bar(color=primary_color)
         .encode(
             x=alt.X("Topic:N", title=None, sort="-y"),
             y=alt.Y("Errors:Q", title=None),
@@ -66,7 +67,7 @@ def chart_timeline(month_data):
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=COLOR_PRIMARY)
+        .mark_bar(color=primary_color)
         .encode(
             x=alt.X("Month:N", title=None, sort=None),
             y=alt.Y("Errors:Q", title=None),
