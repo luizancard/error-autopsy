@@ -1,61 +1,106 @@
-from textwrap import shorten
+from datetime import datetime
 
-import matplotlib.pyplot as plt
+import altair as alt
+import pandas as pd
+from settings import COLOR_PRIMARY
 
-from analysis import metrics as mt
+
+def chart_subjects(suject_data):
+    if not suject_data:
+        return None
+    df = pd.DataFrame(
+        list(suject_data.items()),
+        columns=["Subject", "Errors"],
+    ).sort_values("Errors", ascending=False)
+
+    select_subject = alt.selection_point(
+        name="selected_subjects", fields=["Subject"], on="click"
+    )
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar(color=COLOR_PRIMARY)
+        .encode(
+            x=alt.X("Subject:N", title=None),
+            y=alt.Y("Errors:Q", title=None),
+            opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
+        )
+        .add_params(select_subject)
+        .properties(heigh=320)
+        .configure_view(strokeOpacity=0)
+        .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+    )
+    return chart
 
 
-def create_graphs(data):
-    if not data:
-        print("No data to visualize.")
-        return
+def chart_topics(topic_data):
+    if not topic_data:
+        return None
+    sorted_topics = sorted(topic_data.items(), key=lambda x: x[1], reverse=True)[:10]
+    df = pd.DataFrame(sorted_topics, columns=["Topic", "Errors"])
 
-    plt.style.use("seaborn-v0_8-whitegrid")
+    chart = (
+        alt.Chart(df)
+        .mark_bar(color=COLOR_PRIMARY)
+        .encode(
+            x=alt.X("Topic:N", title=None, sort="-y"),
+            y=alt.Y("Errors:Q", title=None),
+            tooltip=["Topic", "Errors"],
+        )
+        .properties(height=320)
+        .configure_view(strokeOpacity=0)
+        .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+    )
+    return chart
 
-    # Coletar dados
-    type_counts = mt.count_error_types(data)
-    subject_counts = mt.count_subjects(data)
-    topic_counts = mt.count_topics(data)
-    month_counts = mt.count_entries_by_month(data)
 
-    # Criar figura com 4 subplots (2x2)
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
-    fig.suptitle("Error Analysis Graphs", fontsize=16, fontweight="bold")
+def chart_timeline(month_data):
+    if not month_data:
+        return None
 
-    # Dados para cada gráfico
-    datasets = [
-        (type_counts, "Error Types", axes[0, 0], "#6366f1"),
-        (subject_counts, "Subjects", axes[0, 1], "#6366f1"),
-        (topic_counts, "Topics", axes[1, 0], "#6366f1"),
-        (month_counts, "Timeline (by Month)", axes[1, 1], "#6366f1"),
-    ]
+    sorted_months = sorted(
+        month_data.items(),
+        key=lambda x: datetime.strptime(x[0], "%b %Y"),
+    )
+    df = pd.DataFrame(sorted_months, columns=["Month", "Errors"])
 
-    # Criar cada gráfico
-    for data_dict, title, ax, color in datasets:
-        if not data_dict:
-            ax.text(0.5, 0.5, "No data", ha="center", va="center")
-            ax.set_title(title, fontweight="bold")
-            continue
+    chart = (
+        alt.Chart(df)
+        .mark_bar(color=COLOR_PRIMARY)
+        .encode(
+            x=alt.X("Month:N", title=None, sort=None),
+            y=alt.Y("Errors:Q", title=None),
+        )
+        .properties(height=320)
+        .configure_view(strokeOpacity=0)
+        .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+    )
+    return chart
 
-        raw_labels = list(data_dict.keys())
-        labels = [shorten(str(lbl), width=18, placeholder="...") for lbl in raw_labels]
-        values = list(data_dict.values())
 
-        bars = ax.bar(labels, values, color=color, edgecolor="black", alpha=0.8)
-        ax.set_title(title, fontweight="bold", fontsize=12)
-        ax.set_ylabel("Count", fontsize=10)
-        ax.tick_params(axis="x", rotation=30, labelsize=9)
-        ax.grid(axis="y", alpha=0.35, linestyle="--")
+def chart_error_types_pie(type_data):
+    if not type_data:
+        return None
 
-        # add bar labels and a bit of headroom
-        max_val = max(values) if values else 0
-        if max_val > 0:
-            ax.set_ylim(0, max_val * 1.2)
-        ax.bar_label(bars, fmt="%d", padding=3, fontsize=9)
+    df_pie = pd.DataFrame(list(type_data.items()), columns=["Type", "Count"])
+    custom_colors = ["#242038", "#725AC1", "#8070C5", "#8D86C9", "#CAC4CE", "#F7ECE1"]
 
-    plt.tight_layout()  # ← Indentado (dentro da função)
-    plt.savefig(
-        "analytics_dashboard.png", dpi=300, bbox_inches="tight"
-    )  # ← 'tight' não 'thigh'
-    print("Dashboard saved as 'analytics_dashboard.png'!")
-    plt.show()
+    base = alt.Chart(df_pie).encode(theta=alt.Theta("Count", stack=True))
+
+    pie = base.mark_arc(outerRadius=120, innerRadius=0).encode(
+        color=alt.Color(
+            "Type",
+            scale=alt.Scale(range=custom_colors),
+            legend=alt.Legend(title="Error Type"),
+        ),
+        order=alt.Order("Count", sort="descending"),
+        tooltip=["Type", "Count"],
+    )
+
+    text = base.mark_text(radius=140).encode(
+        text=alt.Text("Count"),
+        order=alt.Order("Count", sort="descending"),
+        color=alt.value("#0f172a"),
+    )
+
+    return (pie + text).properties(height=350)

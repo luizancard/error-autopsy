@@ -8,16 +8,16 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from analysis import metrics as mt  # noqa: E402
 from assets import styles
+from services import ai_service as ai  # noqa: E402
+from services import db_service as db  # noqa: E402
 
 # Add src to path
 src_path = Path(__file__).parent / "src"
 if str(src_path) not in sys.path:
     sys.path.append(str(src_path))
 
-from analysis import metrics as mt  # noqa: E402
-from services import ai_service as ai  # noqa: E402
-from services import db_service as db  # noqa: E402
 
 importlib.reload(mt)
 
@@ -42,103 +42,6 @@ st.session_state["current_menu"] = menu_from_url
 st.set_page_config(page_title="Error Autopsy", layout="wide", page_icon="📝")
 
 styles.local_css()
-
-
-def parse_date_str(d: str):
-    try:
-        return datetime.strptime(d, "%d-%m-%Y")
-    except Exception:
-        return None
-
-
-def current_and_last_month_refs(ref: date):
-    first_this = ref.replace(day=1)
-    last_month_last_day = first_this - date.resolution
-    first_last = last_month_last_day.replace(day=1)
-    return (first_this.year, first_this.month), (first_last.year, first_last.month)
-
-
-def aggregate_monthly_stats(data):
-    today = date.today()
-    (cy, cm), (ly, lm) = current_and_last_month_refs(today)
-
-    def month_key(dt_obj):
-        return (dt_obj.year, dt_obj.month)
-
-    current_errors = []
-    last_errors = []
-
-    for row in data:
-        dt = parse_date_str(row.get("date", ""))
-        if not dt:
-            continue
-        key = month_key(dt)
-        if key == (cy, cm):
-            current_errors.append(row)
-        elif key == (ly, lm):
-            last_errors.append(row)
-
-    # Totals
-    current_total = len(current_errors)
-    last_total = len(last_errors)
-
-    # Delta percentage
-    if last_total == 0:
-        delta = 100.0 if current_total > 0 else 0.0
-    else:
-        delta = ((current_total - last_total) / last_total) * 100
-
-    # Subject with most errors this month
-    subject_counts = {}
-    for row in current_errors:
-        subj = row.get("subject", "Unknown") or "Unknown"
-        subject_counts[subj] = subject_counts.get(subj, 0) + 1
-    top_subject = (
-        max(subject_counts.items(), key=lambda x: x[1])[0] if subject_counts else "—"
-    )
-
-    # Primary reason (type) this month
-    type_counts = {}
-    for row in current_errors:
-        t = row.get("type", "Other") or "Other"
-        type_counts[t] = type_counts.get(t, 0) + 1
-    top_type = max(type_counts.items(), key=lambda x: x[1])[0] if type_counts else "—"
-
-    return {
-        "current_total": current_total,
-        "delta": delta,
-        "top_subject": top_subject,
-        "top_type": top_type,
-    }
-
-
-def aggregate_by_topic(data):
-    """Count errors by topic across all data."""
-    topic_counts = {}
-    for row in data:
-        topic = row.get("topic", "Unknown") or "Unknown"
-        topic_counts[topic] = topic_counts.get(topic, 0) + 1
-    return topic_counts
-
-
-def aggregate_by_subject(data):
-    """Count errors by subject across all data."""
-    subject_counts = {}
-    for row in data:
-        subj = row.get("subject", "Unknown") or "Unknown"
-        subject_counts[subj] = subject_counts.get(subj, 0) + 1
-    return subject_counts
-
-
-def aggregate_by_month_all(data):
-    """Count errors by month across all data."""
-    month_counts = {}
-    for row in data:
-        dt = parse_date_str(row.get("date", ""))
-        if dt:
-            month_str = dt.strftime("%b %Y")  # e.g., "Dec 2025"
-            month_counts[month_str] = month_counts.get(month_str, 0) + 1
-    return month_counts
 
 
 def generate_mini_insight(data):
@@ -431,7 +334,7 @@ if menu == "Dashboard":
 
         # Build data for the selected view
         if current_view == 0:
-            subject_data = aggregate_by_subject(chart_errors)
+            subject_data = mt.aggregate_by_subject(chart_errors)
             if not subject_data:
                 st.info(f"No data available for {selected_filter}. Log some errors!")
             else:
@@ -518,10 +421,10 @@ if menu == "Dashboard":
                 filtered_topic_errors = [
                     e for e in chart_errors if e.get("subject") == target_subject
                 ]
-                topic_data = aggregate_by_topic(filtered_topic_errors)
+                topic_data = mt.aggregate_by_topic(filtered_topic_errors)
             else:
                 # Normal behavior
-                topic_data = aggregate_by_topic(chart_errors)
+                topic_data = mt.aggregate_by_topic(chart_errors)
 
             if not topic_data:
                 st.info(f"No data available for {selected_filter}. Log some errors!")
@@ -547,7 +450,7 @@ if menu == "Dashboard":
                 st.altair_chart(chart, use_container_width=True)
 
         else:
-            month_data = aggregate_by_month_all(chart_errors)
+            month_data = mt.aggregate_by_month_all(chart_errors)
             if not month_data:
                 st.info(f"No data available for {selected_filter}. Log some errors!")
             else:
