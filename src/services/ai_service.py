@@ -1,4 +1,5 @@
-import os
+# Retired this part of the program in favor of making the application usable for more people without the free API rate limit
+'''import os
 
 from dotenv import load_dotenv
 from google import genai
@@ -172,26 +173,26 @@ def generate_pattern_diagnosis(data):
 
     intro_prompt = (
         """
-    You are an elite Cognitive Performance Coach. 
+    You are an elite Cognitive Performance Coach.
     Analyze the provided error log to identify the **Root Psychological Cause** of the user's mistakes.
-    
+
     DATA:
     """
         + str(data)
         + """
-    
+
     GOAL:
     Write a COMPREHENSIVE psychological analysis (approx 150-200 words).
     - Do NOT stop at 1-2 sentences. Expound on the behavior.
     - Identify the #1 behavioral pattern and explain the cognitive mechanism (e.g. "Associative Interference", "Decision Fatigue").
     - Connect the specific subjects/topics to the error types.
     - **CRITICAL: Ensure the response is complete and does not cut off mid-sentence.**
-    
+
     FORMATTING RULES:
     1. Output **HTML** only. Use <b>text</b> for emphasis.
     2. DO NOT use Markdown.
     3. Return a single, well-structured paragraph.
-    
+
     Tone: Surgical, professional, high-performance.
     """
     )
@@ -226,12 +227,12 @@ def generate_tactical_plan(data, exam_config=None):
 
     prompt = f"""
     You are a Tactical Study Strategist. Create a 'High-Leverage Focus Plan'.
-    
+
     MODE: {mode}
     FOCUS: {focus}
     AVAILABLE STUDY DAYS: {study_days}
     RECENT ERROR DATA COUNT: {len(data) if data else 0}
-    
+
     TASK:
     Create a daily routine matrix (Morning, Midday, Evening) ONLY for the selected Available Study Days ({study_days}).
     If ({study_days}) does not include all 7 days, generate a plan ONLY for those days.
@@ -239,7 +240,7 @@ def generate_tactical_plan(data, exam_config=None):
     1. **Morning (Retrieval)**: Active recall tasks specific to the user's weak topics.
     2. **Midday (Execution)**: Timed practice or simulation.
     3. **Evening (Synthesis)**: Review and error autopsy.
-    
+
     Output Format:
     Return in Markdown. Use headers for blocks (### Morning 01).
     Keep it concise. If specific error topics exists in the data, PRIORTIZE them in the plan.
@@ -256,7 +257,6 @@ def generate_tactical_plan(data, exam_config=None):
         return f"Plan generation failed: {str(e)}"
 
 
-'''
 def study_plan(data):
     return generate_tactical_plan(data)
 

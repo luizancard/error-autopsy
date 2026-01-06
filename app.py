@@ -1,15 +1,13 @@
 import importlib
 import time
-from datetime import date, datetime
+from datetime import date
 
-import pandas as pd
 import streamlit as st
 
 from assets import styles
 from src.analysis import metrics as mt
 from src.analysis import plots as pt
 from src.interface.streamlit import components as ui
-from src.services import ai_service as ai
 from src.services import db_service as db
 
 importlib.reload(mt)
@@ -37,11 +35,6 @@ st.set_page_config(page_title="Error Autopsy", layout="wide", page_icon="📝")
 styles.local_css()
 
 
-def generate_mini_insight(data):
-    # enerate AI-powered insight based on last 2 months of error data.
-    return ai.generate_web_insight(data)
-
-
 with st.sidebar:
     ui.render_sidebar_header()
     st.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
@@ -65,17 +58,6 @@ with st.sidebar:
         """<svg viewBox="0 0 24 24" fill="currentColor">
             <circle cx="12" cy="12" r="10"></circle>
             <path d="M12 7v10M7 12h10" stroke="white" stroke-width="1.5" stroke-linecap="round"></path>
-            </svg>""",
-    )
-
-    # AI Coach
-    ui.render_menu_button(
-        "AI Coach",
-        "Coach IA",
-        """<svg viewBox="0 0 24 24" fill="currentColor">
-            <path d="M2 9 L12 4 L22 9 L12 14 Z"/>
-            <path d="M6 11.5 V15 C6 16.5 18 16.5 18 15 V11.5 L12 14.5 Z"/>
-            <path d="M18.5 9.5 V14 C18.5 14.8 17.5 15.2 17 15.2 C16.5 15.2 15.5 14.8 15.5 14 V12.8 C15.5 12.4 15.8 12.1 16.2 12.1 C16.6 12.1 16.9 12.4 16.9 12.8 V13.6 C16.9 13.8 17.2 14 17.5 14 C17.8 14 18.1 13.8 18.1 13.6 V9.5 Z"/>
             </svg>""",
     )
 
@@ -243,7 +225,7 @@ if menu == "Dashboard":
         if current_view == 0:
             subject_data = mt.aggregate_by_subject(chart_errors)
 
-            if not subject_data:
+            if subject_data is None:
                 st.info(f"No data available for {selected_filter}. Log some errors!")
             else:
                 chart = pt.chart_subjects(subject_data)
@@ -258,9 +240,9 @@ if menu == "Dashboard":
                 if (
                     event
                     and "selection" in event
-                    and "select_subject" in event["selection"]
+                    and "selected_subjects" in event["selection"]
                 ):
-                    selection_list = event["selection"]["select_subject"]
+                    selection_list = event["selection"]["selected_subjects"]
                     if selection_list:
                         # Extract the subject name (dictionaries in list)
                         # The click returns a list of dicts, e.g. [{'Subject': 'Math'}]
@@ -295,42 +277,31 @@ if menu == "Dashboard":
                     e for e in chart_errors if e.get("subject") == target_subject
                 ]
                 topic_data = mt.aggregate_by_topic(filtered_topic_errors)
-            else:
-                # Normal behavior
-                topic_data = mt.aggregate_by_topic(chart_errors)
-
-            if not topic_data:
-                st.info(f"No data available for {selected_filter}. Log some errors!")
-            else:
-                # Limit to top 10 topics to avoid clutter
-                sorted_topics = sorted(
-                    topic_data.items(), key=lambda x: x[1], reverse=True
-                )[:10]
-                topic_data = pd.DataFrame(sorted_topics, columns=["Topic", "Errors"])
-
                 chart = pt.chart_topics(topic_data)
                 if chart:
                     st.altair_chart(chart, use_container_width=True)
+            else:
+                # Normal behavior
+                topic_data = mt.aggregate_by_topic(chart_errors)
+                if not topic_data:
+                    st.info(
+                        f"No data available for {selected_filter}. Log some errors!"
+                    )
+                else:
+                    chart = pt.chart_topics(topic_data)
+                    if chart:
+                        st.altair_chart(chart, use_container_width=True)
 
         else:
             month_data = mt.aggregate_by_month_all(chart_errors)
-            if not month_data:
-                st.info(f"No data available for {selected_filter}. Log some errors!")
-            else:
-                sorted_months = sorted(
-                    month_data.items(),
-                    key=lambda x: datetime.strptime(x[0], "%b %Y"),
-                )
-                topic_data = pd.DataFrame(sorted_months, columns=["Month", "Errors"])
-
-                chart = pt.chart_timeline(topic_data)
-                if chart:
-                    st.altair_chart(chart, use_container_width=True)
+            chart = pt.chart_timeline(month_data)
+            if chart:
+                st.altair_chart(chart, use_container_width=True)
 
     with insight_col:
         qp = st.query_params
         if qp.get("refresh_insight") == "true":
-            st.session_state.dashboard_insight = ai.generate_web_insight(chart_errors)
+            st.session_state.dashboard_insight = ui.generate_web_insight(chart_errors)
 
         # Check if we already have a cached insight for this session
         if (
@@ -338,13 +309,13 @@ if menu == "Dashboard":
             or st.session_state.dashboard_insight is None
             or str(st.session_state.dashboard_insight) == "None"
         ):
-            st.session_state.dashboard_insight = ai.generate_web_insight(chart_errors)
+            st.session_state.dashboard_insight = ui.generate_web_insight(chart_errors)
 
         mini_insight = st.session_state.dashboard_insight
 
         # Fallback for display
         if mini_insight is None or str(mini_insight) == "None":
-            mini_insight = "Insight generation failed. Please check API Key or Logs."
+            mini_insight = "Insight generation failed. Please check log new errors!"
 
         st.markdown(
             f"""
@@ -363,8 +334,7 @@ if menu == "Dashboard":
             unsafe_allow_html=True,
         )
 
-    # -------------------------------------------------------------------------
-    # NEW SECTION: Error Breakdown by Type (Pie Chart) with separate filter
+    # Error Breakdown by Type (Pie Chart) with separate filter
     st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
 
     # Section Header
@@ -388,7 +358,7 @@ if menu == "Dashboard":
         # Generate Data
         type_data = mt.count_error_types(pie_chart_errors)
 
-        if not type_data:
+        if type_data is None:
             st.info(f"No data available for {selected_filter}.")
         else:
             df_pie = pt.chart_error_types_pie(type_data)
@@ -437,7 +407,7 @@ elif menu == "Log Error":
         submitted = st.button("Log Mistake", use_container_width=True)
 
         if submitted:
-            if not subject or not topic:
+            if subject is None or topic is None:
                 st.error("Please fill in both Subject and Topic.")
             else:
                 db.log_error(
@@ -461,52 +431,6 @@ elif menu == "Log Error":
         st.session_state.show_success = False
         st.session_state.success_message = ""
         st.rerun()
-
-if menu == "Coach AI":
-    # Header
-    ui.render_diagnostic_header()
-
-    # Controls
-    c_filter, c_btn = st.columns([1, 4])
-    with c_filter:
-        time_scope = st.selectbox(
-            "Scope", ["Last 30 Days", "Last 60 Days"], label_visibility="collapsed"
-        )
-    with c_btn:
-        # Fake label to align with the "Scope" label in the other column
-        st.markdown(
-            "<div style='margin-bottom: 0.2rem; font-size: 0.8rem; visibility: hidden;'>Spacer</div>",
-            unsafe_allow_html=True,
-        )
-        run_diag = st.button("Run Diagnosis", type="primary", use_container_width=False)
-
-    # Logic
-    if run_diag:
-        days = 30 if "30" in time_scope else 60
-        filtered_data = mt.filter_data_by_range(errors, months=None)
-        cutoff = date.today() - pd.Timedelta(days=days)
-        filtered_diag_data = [
-            e
-            for e in errors
-            if datetime.strptime(e["date"], "%d-%m-%Y").date() >= cutoff
-        ]
-
-        with st.spinner("Analyzing patterns..."):
-            diagnosis = ai.generate_pattern_diagnosis(filtered_diag_data)
-            st.session_state.latest_diagnosis = diagnosis
-            st.session_state.diagnosis_date = time_scope
-
-    # DISPLAY AREA
-    if (
-        "latest_diagnosis" in st.session_state
-        and st.session_state.get("diagnosis_date") == time_scope
-    ):
-        ui.render_neural_result(
-            diagnosis_text=st.session_state.latest_diagnosis,
-            date_scope=st.session_state.get("diagnosis_date", "Unknown"),
-        )
-    else:
-        ui.render_idle_state()
 
 elif menu == "History":
     st.empty()

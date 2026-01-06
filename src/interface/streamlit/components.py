@@ -29,7 +29,7 @@ def render_menu_button(label, value, icon_svg):
         f"""
         <form method="get">
             <input type="hidden" name="menu" value="{value}" />
-            <button type="submit" class="menu-button" data-menu="{value}"
+            <button type="submit" class="menu-button" data-menu="{value}">
                 {icon_svg}
                 <span>{label}</span>
                 <div class="indicator"></div>
@@ -84,7 +84,7 @@ def render_diagnostic_header():
 
 def render_neural_result(diagnosis_text, date_scope):
     st.markdown(
-        """"
+        """
         <div class="neural-card">
             <div class="neural-header">
                     <span class="neural-badge">Insight</span>
@@ -92,7 +92,7 @@ def render_neural_result(diagnosis_text, date_scope):
             </div>
             <div class="neural_content">{diagnosis_text}</div>
             <div clas="neural_footer">
-                <div class = "neural-confidence">Diagnosis Confidence: <spam class="neural-confidence-value">98.8%</span></div>
+                <div class = "neural-confidence">Diagnosis Confidence: <span class="neural-confidence-value">98.8%</span></div>
             </div>
         </div>      
                 """,
@@ -109,7 +109,7 @@ def render_idle_state():
 
 def render_chart_header(subtitle):
     st.markdown(
-        """"
+        """
         <h3 style="font-family:'Helvetica Neue', sans-serif; font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Concentration</h3>
         <p style="font-family:'Helvetica Neue', sans-serif; font-size:0.95rem;font-weight:500;color:#94a3b8;font-style:italic;margin:0 0 1.5rem 0;>{subtitle}</p>
     """,
@@ -127,3 +127,74 @@ def render_drill_down_info(subject_name):
         """,
         unsafe_allow_html=True,
     )
+
+
+def generate_web_insight(data):
+    if not data:
+        return "No data in this period. Log more errors or adjust the filter to get key insights."
+
+    # Note: 'data' is already filtered by the dashboard time selector,
+    # so we analyze WHATEVER is passed to us (last 6 months, this month, etc.)
+    recent_data = data
+
+    # (Unused variables removed)
+
+    # 1. Drill Down Analysis
+    hierarchy = {}
+
+    for item in recent_data:
+        sub = item.get("subject", "Unknown").strip() or "Unknown"
+        top = item.get("topic", "Unknown").strip() or "Unknown"
+        err = item.get("type", "Unknown")
+
+        if sub not in hierarchy:
+            hierarchy[sub] = {}
+        if top not in hierarchy[sub]:
+            hierarchy[sub][top] = {}
+        hierarchy[sub][top][err] = hierarchy[sub][top].get(err, 0) + 1
+
+    # Find stats
+    max_errors = -1
+    best_combo = None
+
+    for sub, topics in hierarchy.items():
+        for top, error_counts in topics.items():
+            # Find dominant error for this topic
+            dom_err = max(error_counts.items(), key=lambda x: x[1])[0]
+            total_topic_errors = sum(error_counts.values())
+
+            if total_topic_errors > max_errors:
+                max_errors = total_topic_errors
+                best_combo = (sub, top, dom_err, total_topic_errors)
+
+    if not best_combo:
+        return "Keep logging errors to unlock insights."
+
+    target_sub, target_top, target_err, count = best_combo
+
+    # Static Advice Map
+    advice_map = {
+        "Content Gap": "Review core concepts and definitions before practicing.",
+        "Attention detail": "Read questions twice and underline key variables.",
+        "Attention Detail": "Read questions twice and underline key variables.",
+        "Time management": "Skip hard questions early; focus on 'points per minute'.",
+        "Time Management": "Skip hard questions early; focus on 'points per minute'.",
+        "Fatigue": "Optimize sleep and take breaks. Quality over quantity.",
+        "Interpretation": "Re-state the problem in your own words before solving.",
+        "Unknown": "Ensure you categorize your errors to get better tips.",
+    }
+
+    # Normalize error key for lookup
+    key = str(target_err).strip()
+    tip = advice_map.get(key) or advice_map.get(
+        key.title(), "Review your error log patterns."
+    )
+
+    # HTML Output
+    insight_html = (
+        f"Bottleneck detected in <b>{target_sub}</b>: <br>"
+        f"High volume of '<b>{target_err}</b>' errors in <span class='insight-highlight'>{target_top}</span>. "
+        f"<br><br><b>Recommendation:</b> {tip}"
+    )
+
+    return insight_html

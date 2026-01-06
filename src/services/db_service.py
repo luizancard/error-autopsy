@@ -21,7 +21,7 @@ def load_data():
 def save_data(data):
     with open(file_bank, "w", encoding="utf-8") as file:
         json.dump(data, file, indent=4)
-    print("\nSaved succesfully!")
+    print("\nSaved successfully!")
 
 
 def delete_database(data):

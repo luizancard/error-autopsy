@@ -6,11 +6,12 @@ import pandas as pd
 primary_color = "#4e4a5aff"
 
 
-def chart_subjects(suject_data):
-    if not suject_data:
+def chart_subjects(subject_data):
+    if subject_data is None or not subject_data:
         return None
+
     df = pd.DataFrame(
-        list(suject_data.items()),
+        list(subject_data.items()),
         columns=["Subject", "Errors"],
     ).sort_values("Errors", ascending=False)
 
@@ -27,7 +28,7 @@ def chart_subjects(suject_data):
             opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
         )
         .add_params(select_subject)
-        .properties(heigh=320)
+        .properties(height=320)
         .configure_view(strokeOpacity=0)
         .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
     )
@@ -35,7 +36,7 @@ def chart_subjects(suject_data):
 
 
 def chart_topics(topic_data):
-    if not topic_data:
+    if topic_data is None:
         return None
     sorted_topics = sorted(topic_data.items(), key=lambda x: x[1], reverse=True)[:10]
     df = pd.DataFrame(sorted_topics, columns=["Topic", "Errors"])
@@ -80,7 +81,7 @@ def chart_timeline(month_data):
 
 
 def chart_error_types_pie(type_data):
-    if not type_data:
+    if type_data is None or not type_data:
         return None
 
     df_pie = pd.DataFrame(list(type_data.items()), columns=["Type", "Count"])
