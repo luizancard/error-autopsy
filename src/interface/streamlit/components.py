@@ -1,9 +1,16 @@
+"""
+Streamlit UI components for the Error Autopsy application.
+
+Provides reusable components for rendering headers, cards, charts, and insights.
+"""
+
+from typing import Any, Dict, List, Optional
+
 import streamlit as st
 
-# renders the sidebar logo and title
 
-
-def render_sidebar_header():
+def render_sidebar_header() -> None:
+    """Render the application logo and title in the sidebar."""
     st.markdown(
         """
         <div class="sidebar-header-container">
@@ -23,8 +30,15 @@ def render_sidebar_header():
     )
 
 
-# render a generic button
-def render_menu_button(label, value, icon_svg):
+def render_menu_button(label: str, value: str, icon_svg: str) -> None:
+    """
+    Render a navigation button in the sidebar.
+
+    Args:
+        label: Display text for the button.
+        value: Menu value submitted when clicked.
+        icon_svg: SVG markup for the button icon.
+    """
     st.sidebar.markdown(
         f"""
         <form method="get">
@@ -41,35 +55,35 @@ def render_menu_button(label, value, icon_svg):
 
 
 def render_metric_card(
-    label,
-    value,
-    icon_char,
-    icon_bg="#eef2ff",
-    icon_color="#4338ca",
-    pill_text=None,
-    pill_class="",
-):
+    label: str,
+    value: Any,
+    icon_char: str,
+    icon_bg: str = "#eef2ff",
+    icon_color: str = "#4338ca",
+    pill_text: Optional[str] = None,
+    pill_class: str = "",
+) -> None:
+    """
+    Render a metric card with icon and optional pill badge.
+
+    Args:
+        label: Card title text.
+        value: Main metric value to display.
+        icon_char: Character or SVG for the icon.
+        icon_bg: Background color for the icon.
+        icon_color: Color for the icon.
+        pill_text: Optional text for the pill badge.
+        pill_class: CSS class for pill styling.
+    """
     pill_html = (
         f'<div class="metric-pill {pill_class}">{pill_text}</div>' if pill_text else ""
     )
-    st.markdown(
-        f"""
-        <div class="metric-card">
-            <div class="metric-header">
-            <div class="metric-icon" style="background:{icon_bg}; color:{icon_color};">
-                {icon_char}
-        </div>
-        {pill_html}
-    </div>
-    <div class="metric-label">{label}</div>
-    <div class="metric-value">{value}</div>
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    html = f'<div class="metric-card"><div class="metric-header"><div class="metric-icon" style="background:{icon_bg}; color:{icon_color};">{icon_char}</div>{pill_html}</div><div class="metric-label">{label}</div><div class="metric-value">{value}</div></div>'
+    st.markdown(html, unsafe_allow_html=True)
 
 
-def render_diagnostic_header():
+def render_diagnostic_header() -> None:
+    """Render the diagnostic engine header with loading message."""
     st.markdown(
         """
         <h1 class="diagnostic-header">
@@ -82,42 +96,73 @@ def render_diagnostic_header():
     )
 
 
-def render_neural_result(diagnosis_text, date_scope):
+def render_neural_result(diagnosis_text: str, date_scope: str) -> None:
+    """
+    Display diagnostic results in a styled card.
+
+    Args:
+        diagnosis_text: The diagnosis content to display.
+        date_scope: Time period the diagnosis covers.
+    """
     st.markdown(
-        """
+        f"""
         <div class="neural-card">
             <div class="neural-header">
-                    <span class="neural-badge">Insight</span>
-                    <span class="neural-data">{data_scope}</span>
+                <span class="neural-badge">Insight</span>
+                <span class="neural-data">{date_scope}</span>
             </div>
-            <div class="neural_content">{diagnosis_text}</div>
-            <div clas="neural_footer">
-                <div class = "neural-confidence">Diagnosis Confidence: <span class="neural-confidence-value">98.8%</span></div>
+            <div class="neural-content">{diagnosis_text}</div>
+            <div class="neural-footer">
+                <div class="neural-confidence">
+                    Diagnosis Confidence: <span class="neural-confidence-value">98.8%</span>
+                </div>
             </div>
-        </div>      
-                """,
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
 
-def render_idle_state():
-    st.markdown(""""
-        <div class="dashed-container idle-container">
-            <div class="idle-icon-circle">
-                """)
-
-
-def render_chart_header(subtitle):
+def render_idle_state() -> None:
+    """
+    Display an idle state placeholder when no action is in progress.
+    """
     st.markdown(
         """
-        <h3 style="font-family:'Helvetica Neue', sans-serif; font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Concentration</h3>
-        <p style="font-family:'Helvetica Neue', sans-serif; font-size:0.95rem;font-weight:500;color:#94a3b8;font-style:italic;margin:0 0 1.5rem 0;>{subtitle}</p>
-    """,
+        <div class="dashed-container idle-container">
+            <div class="idle-icon-circle">
+                <span class="idle-icon">📊</span>
+            </div>
+            <p class="idle-text">No data to display</p>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
 
-def render_drill_down_info(subject_name):
+def render_chart_header(subtitle: str) -> None:
+    """
+    Render a styled header for chart sections.
+
+    Args:
+        subtitle: Descriptive text shown below the title.
+    """
+    st.markdown(
+        f"""
+        <h3 style="font-family:'Helvetica Neue', sans-serif; font-size:1.35rem; font-weight:800; color:#0f172a; margin:0 0 0.4rem 0; letter-spacing:0.08em; text-transform:uppercase;">Error Concentration</h3>
+        <p style="font-family:'Helvetica Neue', sans-serif; font-size:0.95rem; font-weight:500; color:#94a3b8; font-style:italic; margin:0 0 1.5rem 0;">{subtitle}</p>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def render_drill_down_info(subject_name: str) -> None:
+    """
+    Display the current drill-down filter context.
+
+    Args:
+        subject_name: Name of the subject being filtered.
+    """
     st.markdown(
         f"""
         <div style="font-family:'Helvetica Neue', sans-serif; padding-top: 5px;">
@@ -129,7 +174,19 @@ def render_drill_down_info(subject_name):
     )
 
 
-def generate_web_insight(data):
+def generate_web_insight(data: List[Dict[str, Any]]) -> str:
+    """
+    Generate insight HTML from error data.
+
+    Analyzes error patterns to find the most problematic subject/topic
+    combination and provides actionable recommendations.
+
+    Args:
+        data: List of error records (already filtered by time period).
+
+    Returns:
+        HTML string with insight content.
+    """
     if not data:
         return "No data in this period. Log more errors or adjust the filter to get key insights."
 

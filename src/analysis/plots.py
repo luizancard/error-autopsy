@@ -1,13 +1,44 @@
+"""
+Chart generation functions for error analysis visualization.
+
+Uses Altair for creating interactive charts with consistent theming.
+"""
+
 from datetime import datetime
+from typing import Dict, Optional, Union
 
 import altair as alt
 import pandas as pd
 
-primary_color = "#4e4a5aff"
+from config import ChartConfig, Colors
 
 
-def chart_subjects(subject_data):
-    if subject_data is None or not subject_data:
+def _configure_chart_style(chart: alt.Chart) -> alt.Chart:
+    """
+    Apply consistent styling to an Altair chart.
+
+    Args:
+        chart: The Altair chart to style.
+
+    Returns:
+        Styled chart with configured axes and view.
+    """
+    return chart.configure_view(strokeOpacity=0).configure_axis(
+        labelColor=Colors.AXIS_LABEL, gridColor=Colors.AXIS_GRID
+    )
+
+
+def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
+    """
+    Create a bar chart showing error distribution by subject.
+
+    Args:
+        subject_data: Dictionary mapping subject names to error counts.
+
+    Returns:
+        Altair chart object or None if no data.
+    """
+    if not subject_data:
         return None
 
     df = pd.DataFrame(
@@ -21,42 +52,59 @@ def chart_subjects(subject_data):
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=primary_color)
+        .mark_bar(color=Colors.PRIMARY)
         .encode(
             x=alt.X("Subject:N", title=None),
             y=alt.Y("Errors:Q", title=None),
             opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
         )
         .add_params(select_subject)
-        .properties(height=320)
-        .configure_view(strokeOpacity=0)
-        .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+        .properties(height=ChartConfig.HEIGHT_DEFAULT)
     )
-    return chart
+    return _configure_chart_style(chart)
 
 
-def chart_topics(topic_data):
-    if topic_data is None:
+def chart_topics(topic_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
+    """
+    Create a bar chart showing error distribution by topic.
+
+    Args:
+        topic_data: Dictionary mapping topic names to error counts.
+
+    Returns:
+        Altair chart object or None if no data.
+    """
+    if not topic_data:
         return None
-    sorted_topics = sorted(topic_data.items(), key=lambda x: x[1], reverse=True)[:10]
+
+    sorted_topics = sorted(topic_data.items(), key=lambda x: x[1], reverse=True)[
+        : ChartConfig.TOP_TOPICS_LIMIT
+    ]
     df = pd.DataFrame(sorted_topics, columns=["Topic", "Errors"])
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=primary_color)
+        .mark_bar(color=Colors.PRIMARY)
         .encode(
             x=alt.X("Topic:N", title=None, sort="-y"),
             y=alt.Y("Errors:Q", title=None),
             tooltip=["Topic", "Errors"],
         )
-        .properties(height=320)
-        .configure_view(strokeOpacity=0)
-        .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+        .properties(height=ChartConfig.HEIGHT_DEFAULT)
     )
-    return chart
+    return _configure_chart_style(chart)
 
 
-def chart_timeline(month_data):
+def chart_timeline(month_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
+    """
+    Create a bar chart showing error trends over time.
+
+    Args:
+        month_data: Dictionary mapping month labels to error counts.
+
+    Returns:
+        Altair chart object or None if no data.
+    """
     if not month_data:
         return None
 
@@ -68,31 +116,39 @@ def chart_timeline(month_data):
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=primary_color)
+        .mark_bar(color=Colors.PRIMARY)
         .encode(
             x=alt.X("Month:N", title=None, sort=None),
             y=alt.Y("Errors:Q", title=None),
         )
-        .properties(height=320)
-        .configure_view(strokeOpacity=0)
-        .configure_axis(labelColor="#0f172a", gridColor="#e2e8f0")
+        .properties(height=ChartConfig.HEIGHT_DEFAULT)
     )
-    return chart
+    return _configure_chart_style(chart)
 
 
-def chart_error_types_pie(type_data):
-    if type_data is None or not type_data:
+def chart_error_types_pie(
+    type_data: Optional[Dict[str, int]],
+) -> Optional[Union[alt.Chart, alt.LayerChart]]:
+    """
+    Create a pie chart showing error distribution by type.
+
+    Args:
+        type_data: Dictionary mapping error types to counts.
+
+    Returns:
+        Altair chart or LayerChart object, or None if no data.
+    """
+    if not type_data:
         return None
 
     df_pie = pd.DataFrame(list(type_data.items()), columns=["Type", "Count"])
-    custom_colors = ["#242038", "#725AC1", "#8070C5", "#8D86C9", "#CAC4CE", "#F7ECE1"]
 
     base = alt.Chart(df_pie).encode(theta=alt.Theta("Count", stack=True))
 
     pie = base.mark_arc(outerRadius=120, innerRadius=0).encode(
         color=alt.Color(
             "Type",
-            scale=alt.Scale(range=custom_colors),
+            scale=alt.Scale(range=Colors.CHART_PALETTE),
             legend=alt.Legend(title="Error Type"),
         ),
         order=alt.Order("Count", sort="descending"),
@@ -102,7 +158,7 @@ def chart_error_types_pie(type_data):
     text = base.mark_text(radius=140).encode(
         text=alt.Text("Count"),
         order=alt.Order("Count", sort="descending"),
-        color=alt.value("#0f172a"),
+        color=alt.value(Colors.AXIS_LABEL),
     )
 
-    return (pie + text).properties(height=350)
+    return (pie + text).properties(height=ChartConfig.HEIGHT_LARGE)

@@ -1,69 +1,174 @@
+"""
+Database service for error log persistence.
+
+Handles loading, saving, and managing error records in JSON format.
+"""
+
 import json
-import os
+import logging
+import uuid
 from datetime import date, datetime
-from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-# Build absolute path to data/error_log.json
-# File is in src/services/db_service.py -> Go up 3 levels to project root
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
-file_bank = BASE_DIR / "data" / "error_log.json"
+from config import DATE_FORMAT_DISPLAY, DATE_FORMAT_ISO, ERROR_LOG_FILE
+
+logger = logging.getLogger(__name__)
 
 
-def load_data():
-    if not os.path.exists(file_bank):  # in case the file does not exist
+class ValidationError(Exception):
+    """Raised when input validation fails."""
+
+    pass
+
+
+def load_data() -> List[Dict[str, Any]]:
+    """
+    Load error records from the JSON database file.
+
+    Returns:
+        List of error record dictionaries. Empty list if file doesn't exist.
+    """
+    if not ERROR_LOG_FILE.exists():
         return []
-    with open(
-        file_bank, "r", encoding="utf-8"
-    ) as file:  # reading file (accepts accents)
-        return json.load(file)
+
+    try:
+        with open(ERROR_LOG_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse error log: {e}")
+        return []
+    except IOError as e:
+        logger.error(f"Failed to read error log file: {e}")
+        return []
 
 
-def save_data(data):
-    with open(file_bank, "w", encoding="utf-8") as file:
-        json.dump(data, file, indent=4)
-    print("\nSaved successfully!")
+def save_data(data: List[Dict[str, Any]]) -> bool:
+    """
+    Save error records to the JSON database file.
+
+    Args:
+        data: List of error record dictionaries to save.
+
+    Returns:
+        True if save succeeded, False otherwise.
+    """
+    try:
+        with open(ERROR_LOG_FILE, "w", encoding="utf-8") as file:
+            json.dump(data, file, indent=4)
+        logger.info("Data saved successfully")
+        return True
+    except IOError as e:
+        logger.error(f"Failed to save data: {e}")
+        return False
 
 
-def delete_database(data):
-    with open(file_bank, "w", encoding="utf-8") as file:
-        json.dump([], file)
+def delete_database(data: List[Dict[str, Any]]) -> bool:
+    """
+    Clear all records from the database.
+
+    Warning: This operation is irreversible.
+
+    Args:
+        data: In-memory data list to clear.
+
+    Returns:
+        True if deletion succeeded, False otherwise.
+    """
+    try:
+        with open(ERROR_LOG_FILE, "w", encoding="utf-8") as file:
+            json.dump([], file)
         data.clear()
-    print("\nDataBase deleted successfully!")
+        logger.info("Database cleared successfully")
+        return True
+    except IOError as e:
+        logger.error(f"Failed to clear database: {e}")
+        return False
 
 
-def log_error(data, subject, topic, error_type, description, date_val):
+def _generate_id() -> str:
+    """Generate a unique ID for a new record."""
+    return str(uuid.uuid4())[:8]
+
+
+def _format_date(date_val: date | datetime | str) -> str:
     """
-    Logs a new error to the data list and saves it.
-    Attributes:
-        data (list): The list of error records.
-        subject (str): The subject of the error.
-        topic (str): The topic of the error.
-        error_type (str): The type of error.
-        description (str): Description or reflection.
-        date_val (str or datetime.date): The date of the error.
-    """
+    Convert date value to standardized display format.
 
-    # Ensure date is formatted as DD-MM-YYYY
+    Args:
+        date_val: Date as datetime object or string.
+
+    Returns:
+        Date string in DD-MM-YYYY format.
+    """
     if isinstance(date_val, (date, datetime)):
-        date_str = date_val.strftime("%d-%m-%Y")
-    else:
-        # If it's a string, try to parse and reformat, or assume standard ISO
-        # But safest is to trust it if it matches, or force reformat if it's ISO YYYY-MM-DD
-        try:
-            # Try parsing ISO
-            parsed = datetime.strptime(str(date_val), "%Y-%m-%d")
-            date_str = parsed.strftime("%d-%m-%Y")
-        except ValueError:
-            # Assume it's already in correct format or raw string
-            date_str = str(date_val)
+        return date_val.strftime(DATE_FORMAT_DISPLAY)
+
+    try:
+        parsed = datetime.strptime(str(date_val), DATE_FORMAT_ISO)
+        return parsed.strftime(DATE_FORMAT_DISPLAY)
+    except ValueError:
+        return str(date_val)
+
+
+def _validate_input(subject: str, topic: str, error_type: str) -> None:
+    """
+    Validate required fields before saving.
+
+    Args:
+        subject: Subject name to validate.
+        topic: Topic name to validate.
+        error_type: Error type to validate.
+
+    Raises:
+        ValidationError: If any required field is empty.
+    """
+    errors = []
+    if not subject or not subject.strip():
+        errors.append("Subject")
+    if not topic or not topic.strip():
+        errors.append("Topic")
+    if not error_type or not error_type.strip():
+        errors.append("Error Type")
+
+    if errors:
+        raise ValidationError(f"Missing required fields: {', '.join(errors)}")
+
+
+def log_error(
+    data: List[Dict[str, Any]],
+    subject: str,
+    topic: str,
+    error_type: str,
+    description: Optional[str],
+    date_val: date | datetime | str,
+) -> bool:
+    """
+    Log a new error record to the database.
+
+    Args:
+        data: In-memory list of error records.
+        subject: Academic subject (e.g., "Math").
+        topic: Specific topic within subject (e.g., "Geometry").
+        error_type: Category of error from ErrorType enum.
+        description: Optional user reflection on the error.
+        date_val: When the error occurred.
+
+    Returns:
+        True if logging succeeded, False otherwise.
+
+    Raises:
+        ValidationError: If required fields are missing.
+    """
+    _validate_input(subject, topic, error_type)
 
     new_entry = {
-        "subject": subject,
-        "topic": topic,
+        "id": _generate_id(),
+        "subject": subject.strip(),
+        "topic": topic.strip(),
         "type": error_type,
-        "description": description,
-        "date": date_str,
+        "description": description.strip() if description else "",
+        "date": _format_date(date_val),
     }
 
     data.append(new_entry)
-    save_data(data)
+    return save_data(data)
