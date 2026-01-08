@@ -1,569 +1,728 @@
 /* From assets/styles.py */
+
+/* Sidebar Toggle Button - Always Visible */
+[data-testid="stExpandSidebarButton"],
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="collapsedControl"] {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: fixed !important;
+    top: 1rem !important;
+    left: 1rem !important;
+    z-index: 999999 !important;
+}
+
+[data-testid="stExpandSidebarButton"] button,
+[data-testid="stSidebarCollapsedControl"] button {
+    background: white !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+    padding: 0.5rem !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+[data-testid="stExpandSidebarButton"] button:hover,
+[data-testid="stSidebarCollapsedControl"] button:hover {
+    background: #f8fafc !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+    border-color: #cbd5e1 !important;
+}
+
 .st-emotion-cache-1r6slb0 {
-    background-color: white;
-    padding: 2rem;
-    border-radius: 25px;
-    box-shadow: 0 7px 10px rgba(0, 0, 0, 0.05);
+  background-color: white;
+  padding: 2rem;
+  border-radius: 25px;
+  box-shadow: 0 7px 10px rgba(0, 0, 0, 0.05);
 }
 
 /* This rounds the corners of text inputs */
 .stTextInput > div > div > input {
-    border-radius: 10px;
+  border-radius: 10px;
 }
 
 /* This styles the big headers */
-h1, h2, h3 {
-    font-family: 'Helvetica Neue', sans-serif;
-    font-weight: 700;
-    color: #333;
-    margin-top: 0.4rem;
-    margin-bottom: 1.8rem;
+h1,
+h2,
+h3 {
+  font-family: "Helvetica Neue", sans-serif;
+  font-weight: 700;
+  color: #333;
+  margin-top: 0.4rem;
+  margin-bottom: 1.8rem;
 }
 
 /* Sidebar Header Styling */
 .sidebar-header-container {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    margin-bottom: 0.5rem;
-    padding: 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 1rem 0;
 }
 
 .sidebar-logo-wrapper {
-    position: relative;
-    width: 50px;
-    height: 50px;
-    flex-shrink: 0;
+  position: relative;
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
 }
 
 .sidebar-logo {
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(135deg, #1a2a4a 0%, #2d4563 100%);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 8px 20px rgba(26, 42, 74, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.2);
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #1a2a4a 0%, #2d4563 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 8px 20px rgba(26, 42, 74, 0.3),
+    inset 0 1px 2px rgba(255, 255, 255, 0.2);
 }
 
 .sidebar-logo svg {
-    width: 24px;
-    height: 24px;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  width: 24px;
+  height: 24px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
 }
 
 .sidebar-title-group h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    color: #1a1a1a;
-    font-weight: 800;
-    letter-spacing: 0.08em;
+  margin: 0;
+  font-size: 1.4rem;
+  color: #1a1a1a;
+  font-weight: 800;
+  letter-spacing: 0.08em;
 }
 
 /* Menu Buttons Styling */
 .sidebar-menu {
-    display: flex;
-    flex-direction: column;
-    gap: 0.8rem;
-    margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  margin-top: 2rem;
 }
 
 .sidebar-menu form {
-    margin: 0;
+  margin: 0;
 }
 
 .menu-button {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.85rem 1.25rem;
-    background: transparent;
-    border: none !important;
-    cursor: pointer;
-    border-radius: 12px;
-    transition: all 0.2s ease;
-    position: relative;
-    font-weight: 700 !important;
-    width: 100%;
-    text-decoration: none !important;
-    color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.25rem;
+  background: transparent;
+  border: none !important;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  font-weight: 700 !important;
+  width: 100%;
+  text-decoration: none !important;
+  color: inherit;
 }
 
 .menu-button:visited,
 .menu-button:focus,
 .menu-button:hover,
 .menu-button:active {
-    text-decoration: none !important;
-    color: inherit;
+  text-decoration: none !important;
+  color: inherit;
 }
 
 .menu-button:hover {
-    background-color: #e8e8e8;
+  background-color: #e8e8e8;
 }
 
 .menu-button svg {
-    width: 20px;
-    height: 20px;
-    color: #9ca3af;
-    transition: color 0.2s ease;
+  width: 20px;
+  height: 20px;
+  color: #9ca3af;
+  transition: color 0.2s ease;
 }
 
 .menu-button span {
-    color: #9ca3af;
-    font-size: 1.05rem;
-    font-weight: 700;
-    transition: color 0.2s ease;
+  color: #9ca3af;
+  font-size: 1.05rem;
+  font-weight: 700;
+  transition: color 0.2s ease;
 }
 
 .menu-button.active {
-    background: #eeeeeeff !important;
+  background: #eeeeeeff !important;
 }
 
 .menu-button.active svg {
-    color: #6366f1;
+  color: #6366f1;
 }
 
 .menu-button.active span {
-    color: #1a1a1a;
-    font-weight: 700;
+  color: #1a1a1a;
+  font-weight: 700;
 }
 
 .menu-button .indicator {
-    position: absolute;
-    right: 1rem;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #6366f1;
-    opacity: 0;
-    transition: opacity 0.2s ease;
+  position: absolute;
+  right: 1rem;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #6366f1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
 }
 
 .menu-button.active .indicator {
-    opacity: 1;
+  opacity: 1;
 }
 
 /* Dashboard cards */
 .metrics-row {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1.8rem;
-    width: 100%;
-    margin-top: 2rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.8rem;
+  width: 100%;
+  margin-top: 2rem;
 }
 
 .metric-card {
-    background: #eeeeeeff; /* uses theme secondaryBackgroundColor */
-    border-radius: 24px;
-    padding: 18px;
-    box-shadow: 0 15px 30px rgba(0,0,0,0.04);
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    min-height: 140px;
+  background: #eeeeeeff;
+  /* uses theme secondaryBackgroundColor */
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow: 0 15px 30px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 140px;
 }
 
 .metric-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .metric-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 12px;
-    display: grid;
-    place-items: center;
-    font-size: 18px;
-    font-weight: 700;
-    color: #1a1a1a;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
 }
 
 .metric-pill {
-    background: #e8f9f0;
-    color: #169c5b;
-    padding: 6px 10px;
-    border-radius: 12px;
-    font-size: 0.8rem;
-    font-weight: 700;
+  background: #e8f9f0;
+  color: #169c5b;
+  padding: 6px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .metric-label {
-    letter-spacing: 0.08em;
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: #8a94a6;
-    text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #8a94a6;
+  text-transform: uppercase;
 }
 
 .metric-value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #0f172a;
-    line-height: 1.1;
+  font-size: 2rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
 }
+
 /* Pill state colors */
-.pill-positive { background: #e8f9f0; color: #16a34a; }
-.pill-negative { background: #fee2e2; color: #b91c1c; }
+.pill-positive {
+  background: #e8f9f0;
+  color: #16a34a;
+}
+
+.pill-negative {
+  background: #fee2e2;
+  color: #b91c1c;
+}
 
 /* Inner shadow override for cards */
 .metric-card {
-    box-shadow:
-        inset 0 10px 18px rgba(255,255,255,0.55),
-        inset 0 -8px 18px rgba(0,0,0,0.05),
-        0 15px 30px rgba(0,0,0,0.04);
-    border: 1px solid rgba(0,0,0,0.03);
+  box-shadow: inset 0 10px 18px rgba(255, 255, 255, 0.55),
+    inset 0 -8px 18px rgba(0, 0, 0, 0.05), 0 15px 30px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 /* Chart card - clean white background */
 .chart-card {
-    background: #EEEEEE;
-    border-radius: 24px;
-    padding: 28px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-    min-height: 480px;
+  background: #eeeeee;
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  min-height: 480px;
 }
 
 .chart-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
 }
 
 .chart-title {
-    font-size: 1.15rem;
-    font-weight: 800;
-    color: #0f172a;
-    margin: 0 0 0.4rem 0;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 0.4rem 0;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .chart-subtitle {
-    font-size: 0.9rem;
-    color: #94a3b8;
-    font-weight: 500;
-    font-style: italic;
-    margin: 0;
+  font-size: 0.9rem;
+  color: #94a3b8;
+  font-weight: 500;
+  font-style: italic;
+  margin: 0;
 }
 
 /* Navigation dots */
 .chart-nav-dots {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .nav-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: #cbd5e1;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    border: none;
-    padding: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  padding: 0;
 }
 
 .nav-dot.active {
-    background: #0f172a;
-    width: 10px;
-    height: 10px;
+  background: #0f172a;
+  width: 10px;
+  height: 10px;
 }
 
 .nav-dot:hover {
-    background: #64748b;
+  background: #64748b;
 }
 
 /* AI Insight card - dark background */
 .insight-card {
-    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    border-radius: 24px;
-    padding: 32px 28px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    min-height: 420px;
-    display: flex;
-    flex-direction: column;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border-radius: 24px;
+  padding: 32px 28px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
 }
 
 .insight-title {
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #eeeeee;
-    margin: 0 0 0.2rem 0;
-    font-style: bold;
-    position: relative;
-    display: inline-block;
-    padding-bottom: 0.3rem;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #eeeeee;
+  margin: 0 0 0.2rem 0;
+  font-style: bold;
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.3rem;
 }
 
 .insight-title::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 3px;
-    background: #6366f1;
-    border-radius: 2px;
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #6366f1;
+  border-radius: 2px;
 }
 
 .insight-content {
-    color: #cbd5e1;
-    font-size: 0.95rem;
-    line-height: 1.75;
-    margin-top: 1.5rem;
-    flex-grow: 1;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  margin-top: 1.5rem;
+  flex-grow: 1;
 }
 
 .insight-highlight {
-    color: #818cf8;
-    font-weight: 700;
+  color: #818cf8;
+  font-weight: 700;
 }
 
 .action-button {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.6rem;
-    background: white;
-    color: #0f172a;
-    padding: 0.9rem 1.6rem;
-    border-radius: 12px;
-    font-weight: 700;
-    font-size: 0.9rem;
-    text-decoration: none;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    border: none;
-    margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  background: white;
+  color: #0f172a;
+  padding: 0.9rem 1.6rem;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: none;
+  margin-top: auto;
 }
 
 .action-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
 
 /* From app.py: Transparent buttons */
 div[data-testid="stButton"] > button {
-    background-color: transparent !important;
-    border: 1px solid transparent !important; /* Ensure border is transparent */
-    box-shadow: none !important;
-    color: #64748b !important;
-    font-weight: 600 !important;
-    padding: 0px 8px !important;
-    transition: all 0.2s ease;
+  background-color: transparent !important;
+  border: 1px solid transparent !important;
+  /* Ensure border is transparent */
+  box-shadow: none !important;
+  color: #64748b !important;
+  font-weight: 600 !important;
+  padding: 0px 8px !important;
+  transition: all 0.2s ease;
 }
 
 /* Hover state */
 div[data-testid="stButton"] > button:hover {
-    color: #6366f1 !important;
-    background-color: rgba(99, 102, 241, 0.1) !important; /* Very subtle hover bg */
-    border-color: transparent !important;
+  color: #6366f1 !important;
+  background-color: rgba(99, 102, 241, 0.1) !important;
+  /* Very subtle hover bg */
+  border-color: transparent !important;
 }
 
 /* Active/Focus state */
 div[data-testid="stButton"] > button:active,
 div[data-testid="stButton"] > button:focus {
-    color: #4338ca !important;
-    background-color: transparent !important;
-    border-color: transparent !important;
-    box-shadow: none !important;
+  color: #4338ca !important;
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
 }
 
 /* From app.py: Coach AI styles */
 /* Global Font Override */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
-html, body, [class*="css"] {
-    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+html,
+body,
+[class*="css"] {
+  font-family: "Inter", "Helvetica Neue", sans-serif;
 }
 
 /* Custom Pill Nav */
 .nav-pill {
-    display: inline-block;
-    padding: 8px 16px;
-    border-radius: 99px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: 1px solid transparent;
-    margin-right: 8px;
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+  margin-right: 8px;
 }
 
 .nav-pill.active {
-    background-color: #0f172a;
-    color: white;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+  background-color: #0f172a;
+  color: white;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
 }
 
 .nav-pill.inactive {
-    background-color: white;
-    color: #64748b;
-    border: 1px solid #e2e8f0;
+  background-color: white;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
 }
 
 .nav-pill.inactive:hover {
-    background-color: #f8fafc;
-    border-color: #cbd5e1;
-    color: #334155;
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #334155;
 }
 
 /* "Ghost" Button Style (as seen in screenshots) */
 .ghost-btn {
-    background: white;
-    border: 1px solid #e2e8f0;
-    color: #0f172a;
-    font-weight: 600;
-    border-radius: 8px;
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    transition: all 0.2s;
+  background: white;
+  border: 1px solid #e2e8f0;
+  color: #0f172a;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  transition: all 0.2s;
 }
 
 .ghost-btn:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
+  background: #f8fafc;
+  border-color: #cbd5e1;
 }
 
 /* Dashed Empty State */
 .dashed-container {
-    border: 2px dashed #e2e8f0;
-    border-radius: 24px;
-    background-color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 6rem 2rem;
-    min-height: 400px;
-    margin-top: 1.5rem;
+  border: 2px dashed #e2e8f0;
+  border-radius: 24px;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 6rem 2rem;
+  min-height: 400px;
+  margin-top: 1.5rem;
 }
 
 /* Configuration Modal Style */
 .config-card {
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 24px;
-    padding: 2rem;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-    max-width: 600px;
-    margin: 2rem auto;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 24px;
+  padding: 2rem;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 600px;
+  margin: 2rem auto;
 }
 
 /* Hide Default Streamlit Elements */
-[data-testid="stHeader"] { visibility: hidden; }
+[data-testid="stHeader"] {
+  visibility: hidden;
+}
 
 /* Refactored Inline Styles */
 .diagnostic-header {
-    font-family: 'Helvetica Neue', sans-serif;
-    font-weight: 900;
-    font-style: italic;
-    font-size: 3rem;
-    letter-spacing: -0.04em;
-    margin-bottom: 0;
-    line-height: 1.1;
+  font-family: "Helvetica Neue", sans-serif;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 3rem;
+  letter-spacing: -0.04em;
+  margin-bottom: 0;
+  line-height: 1.1;
 }
 
 .diagnostic-subtext {
-    color: #64748b;
-    font-size: 1.1rem;
-    font-weight: 500;
-    margin-top: 0.5rem;
-    margin-bottom: 2rem;
+  color: #64748b;
+  font-size: 1.1rem;
+  font-weight: 500;
+  margin-top: 0.5rem;
+  margin-bottom: 2rem;
 }
 
 .neural-card {
-    background-color: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 3rem;
-    box-shadow: 0 10px 30px -10px rgba(0,0,0,0.08);
-    margin-top: 1rem;
+  background-color: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 3rem;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08);
+  margin-top: 1rem;
 }
 
 .neural-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
 }
 
 .neural-badge {
-    background: #fef3c7;
-    color: #d97706;
-    font-weight: 800;
-    font-size: 0.75rem;
-    padding: 6px 14px;
-    border-radius: 99px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  background: #fef3c7;
+  color: #d97706;
+  font-weight: 800;
+  font-size: 0.75rem;
+  padding: 6px 14px;
+  border-radius: 99px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .neural-date {
-    color: #94a3b8;
-    font-weight: 600;
-    font-size: 0.9rem;
+  color: #94a3b8;
+  font-weight: 600;
+  font-size: 0.9rem;
 }
 
 .neural-content {
-    font-size: 1.4rem;
-    line-height: 1.6;
-    font-weight: 500;
-    color: #1e293b;
-    font-family: 'Helvetica Neue', sans-serif;
+  font-size: 1.4rem;
+  line-height: 1.6;
+  font-weight: 500;
+  color: #1e293b;
+  font-family: "Helvetica Neue", sans-serif;
 }
 
 .neural-footer {
-    margin-top: 2.5rem;
-    padding-top: 2rem;
-    border-top: 1px solid #f1f5f9;
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 .neural-confidence {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    color: #64748b;
-    font-weight: 700;
-    letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #64748b;
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .neural-confidence-value {
-    color: #10b981;
+  color: #10b981;
 }
 
 .idle-icon-circle {
-    width: 72px;
-    height: 72px;
-    background: #f8fafc;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 1.5rem;
+  width: 72px;
+  height: 72px;
+  background: #f8fafc;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.5rem;
 }
 
 .idle-title {
-    color: #0f172a;
-    font-weight: 700;
-    font-size: 1.5rem;
-    margin: 0 0 0.5rem 0;
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin: 0 0 0.5rem 0;
 }
 
 .idle-text {
-    color: #64748b;
-    max-width: 400px;
-    line-height: 1.6;
+  color: #64748b;
+  max-width: 400px;
+  line-height: 1.6;
 }
 
 .neural-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 2rem;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 2rem;
 }
+
+/* History Page Styles */
+.history-container {
+  padding: 2rem 0;
+}
+
+/* Filter Tags - Clean and Minimal */
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+  color: #37352f;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.filter-tag-label {
+  color: #787774;
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+.filter-tag:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+/* Data Table Container - No white blob, transparent background */
+.data-table-container {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  border: none;
+  margin-top: 1.5rem;
+}
+
+/* Streamlit data editor custom styling - Notion-like */
+[data-testid="stDataFrameResizable"] {
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.09);
+}
+
+[data-testid="stDataFrameResizable"] table {
+  font-family: 'Helvetica Neue', sans-serif;
+}
+
+[data-testid="stDataFrameResizable"] thead th {
+  background: #f7f6f3 !important;
+  color: #787774 !important;
+  font-weight: 500 !important;
+  font-size: 0.875rem !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  padding: 0.5rem 0.75rem !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.09) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+
+[data-testid="stDataFrameResizable"] thead th:last-child {
+  border-right: none !important;
+}
+
+[data-testid="stDataFrameResizable"] tbody td {
+  padding: 0.5rem 0.75rem !important;
+  color: #37352f !important;
+  font-size: 0.875rem !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+[data-testid="stDataFrameResizable"] tbody td:last-child {
+  border-right: none !important;
+}
+
+[data-testid="stDataFrameResizable"] tbody tr:hover {
+  background: rgba(0, 0, 0, 0.02) !important;
+}
+
+[data-testid="stDataFrameResizable"] tbody tr:hover td {
+  background: rgba(0, 0, 0, 0.02) !important;
+}
+
+/* Save button styling - More subtle */
+.save-button {
+  background: #2383e2;
+  color: white;
+  padding: 0.6rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  margin-top: 1rem;
+}
+
+.save-button:hover {
+  background: #1a6dc7;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.save-button:active {
+  transform: translateY(0);
+}
+

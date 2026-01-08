@@ -30,9 +30,7 @@ importlib.reload(mt)
 errors = db.load_data()
 
 
-# =============================================================================
 # Helper Functions
-# =============================================================================
 
 
 def init_session_state() -> None:
@@ -312,9 +310,7 @@ def render_pie_chart_section(data: List[Dict[str, Any]], selected_filter: str) -
                 st.altair_chart(chart, use_container_width=True)
 
 
-# =============================================================================
 # Page Renderers
-# =============================================================================
 
 
 def render_dashboard() -> None:
@@ -357,7 +353,7 @@ def render_dashboard() -> None:
 
 def render_log_error() -> None:
     """Render the log error form page."""
-    st.title("📝 Log a New Mistake")
+    st.title("Log a New Mistake")
 
     with st.container(border=True):
         if st.session_state.reset_form:
@@ -412,26 +408,105 @@ def render_log_error() -> None:
 
 
 def render_history() -> None:
-    """Render the history page."""
-    st.empty()
+    """Render the history page with filterable, editable database table."""
+    from src.interface.streamlit import history_components as hist
+
+    st.title("History")
+
+    # Initialize filter state
+    if "history_filters" not in st.session_state:
+        st.session_state.history_filters = {
+            "subjects": [],
+            "topics": [],
+            "error_types": [],
+            "date_from": None,
+            "date_to": None,
+        }
+
+    # Filter button and active filter tags
+    col_filter, col_space = st.columns([2, 5])
+    with col_filter:
+        hist.render_filter_popup()
+
+    # Show active filters
+    hist.render_active_filters()
+
+    # Load and filter data
+    all_data = db.load_data()
+    filters = st.session_state.history_filters
+    filtered_data = hist.apply_filters(all_data, filters)
+
+    # Display record count
+    st.markdown(
+        f'<p style="color: #64748b; font-size: 0.95rem; margin-top: 1rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(all_data)}</strong> records</p>',
+        unsafe_allow_html=True,
+    )
+
+    # Render editable table
+    if filtered_data:
+        edited_df = hist.render_editable_table(filtered_data)
+
+        # Save changes button - aligned with table
+        if st.button("Save Changes", use_container_width=True, type="primary"):
+            try:
+                # Convert edited DataFrame back to list of dicts
+                # Rename columns back to original field names
+                edited_df.columns = [
+                    "id",
+                    "subject",
+                    "topic",
+                    "type",
+                    "description",
+                    "date",
+                ]
+                updated_records = edited_df.to_dict("records")
+
+                # Generate IDs for new records (rows without ID or with NaN ID)
+                # Import the internal _generate_id function
+                from src.services.db_service import _generate_id
+
+                for record in updated_records:
+                    if (
+                        not record.get("id")
+                        or str(record.get("id")).strip() == ""
+                        or str(record.get("id")) == "nan"
+                    ):
+                        record["id"] = _generate_id()
+
+                # Update database
+                success = db.update_errors(updated_records)
+
+                if success:
+                    st.success("Changes saved successfully!")
+                    # Reload data in main app
+                    st.cache_data.clear()
+                    st.rerun()
+                else:
+                    st.error("Failed to save changes. Please try again.")
+            except db.ValidationError as e:
+                st.error(f"Validation error: {str(e)}")
+            except Exception as e:
+                st.error(f"Error saving changes: {str(e)}")
+
+    else:
+        st.info(
+            "No records match your filters. Try adjusting the filter criteria or log some errors!"
+        )
 
 
-# =============================================================================
 # Main Application
-# =============================================================================
-
-
-init_session_state()
-
-raw_menu = st.query_params.get("menu", "Dashboard")
-menu_from_url = raw_menu[0] if isinstance(raw_menu, list) else raw_menu
-st.session_state["current_menu"] = menu_from_url
 
 st.set_page_config(
     page_title=AppConfig.PAGE_TITLE,
     layout=AppConfig.LAYOUT,
     page_icon=AppConfig.PAGE_ICON,
+    initial_sidebar_state="expanded",
 )
+init_session_state()
+
+raw_menu = st.query_params.get("menu", "Dashboard")
+menu_from_url = raw_menu[0] if isinstance(raw_menu, list) else raw_menu
+st.session_state["current_menu"] = menu_from_url
 
 styles.local_css()
 

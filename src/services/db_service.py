@@ -172,3 +172,30 @@ def log_error(
 
     data.append(new_entry)
     return save_data(data)
+
+
+def update_errors(updated_data: List[Dict[str, Any]]) -> bool:
+    """
+    Update multiple error records in the database.
+
+    Used by the History page to save bulk edits from the data table.
+
+    Args:
+        updated_data: Complete list of error records with modifications.
+
+    Returns:
+        True if update succeeded, False otherwise.
+
+    Raises:
+        ValidationError: If any record has missing required fields.
+    """
+    # Validate all records before saving
+    for record in updated_data:
+        subject = record.get("subject", "").strip()
+        topic = record.get("topic", "").strip()
+        error_type = record.get("type", "").strip()
+
+        _validate_input(subject, topic, error_type)
+
+    # All records are valid, save to file
+    return save_data(updated_data)
