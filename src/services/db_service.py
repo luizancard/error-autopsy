@@ -1,18 +1,31 @@
-"""
-Database service for error log persistence.
-
-Handles loading, saving, and managing error records in JSON format.
-"""
+# Data base linked to superbase (PostgreSQL)
 
 import json
 import logging
+import os
 import uuid
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional
 
+import streamlit as st
+from dotenv import load_dotenv
+
 from config import DATE_FORMAT_DISPLAY, DATE_FORMAT_ISO, ERROR_LOG_FILE
 
 logger = logging.getLogger(__name__)
+load_dotenv()
+
+SUPABASE_URL = os.getenv("SUPABASE_URL" or st.secrets.get("SUPABASE_URL"))
+SUPABASE_KEY = os.getenv("SUPABASE_KEY" or st.secrets.get("SUPABASE_KEY"))
+"""
+if not SUPABASE_URL or SUPABASE_KEY:
+    supabase = None
+else: 
+    try:
+        supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+    except Exception as e:
+        logger.error(f"Erro crítico conectando ao Supabase: {e}")
+"""
 
 
 class ValidationError(Exception):

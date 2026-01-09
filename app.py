@@ -6,7 +6,7 @@ A Streamlit application for tracking and analyzing learning mistakes.
 
 import importlib
 from datetime import date
-from typing import Any, Dict, List
+from typing import Any, Dict, List, cast
 
 import streamlit as st
 
@@ -447,7 +447,9 @@ def render_history() -> None:
         edited_df = hist.render_editable_table(filtered_data)
 
         # Save changes button - aligned with table
-        if st.button("Save Changes", use_container_width=True, type="primary"):
+        if edited_df is not None and st.button(
+            "Save Changes", use_container_width=True, type="primary"
+        ):
             try:
                 # Convert edited DataFrame back to list of dicts
                 # Rename columns back to original field names
@@ -459,7 +461,7 @@ def render_history() -> None:
                     "description",
                     "date",
                 ]
-                updated_records = edited_df.to_dict("records")
+                updated_records = cast(List[Dict[str, Any]], edited_df.to_dict("records"))
 
                 # Generate IDs for new records (rows without ID or with NaN ID)
                 # Import the internal _generate_id function
