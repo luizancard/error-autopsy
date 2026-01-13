@@ -23,19 +23,25 @@ from config.icons import ICON_BOOK, ICON_DASHBOARD, ICON_HISTORY, ICON_LOG_ERROR
 from src.analysis import metrics as mt
 from src.analysis import plots as pt
 from src.interface.streamlit import components as ui
+from src.interface.streamlit import history_components as hist
+from src.interface.streamlit import login_component
+from src.services import auth_service
 from src.services import db_service as db
 
 importlib.reload(mt)
 
-errors = db.load_data()
-
-
-# Helper Functions
+st.set_page_config(
+    page_title=AppConfig.PAGE_TITLE,
+    layout=AppConfig.LAYOUT,
+    page_icon=AppConfig.PAGE_ICON,
+    initial_sidebar_state="expanded",
+)
 
 
 def init_session_state() -> None:
     """Initialize all session state defaults."""
     defaults = {
+        "user": None,
         "subject_input": "",
         "topic_input": "",
         "description_input": "",
@@ -48,7 +54,27 @@ def init_session_state() -> None:
         "chart_view": 0,
     }
     for key, value in defaults.items():
-        st.session_state.setdefault(key, value)
+        if key not in st.session_state:
+            st.session_state[key] = value
+
+
+init_session_state()
+
+if not st.session_state["user"]:
+    login_component.render_login()
+    st.stop()
+
+# User data
+
+current_user = st.session_state["user"]
+user_id = current_user.id
+styles.local_css()
+
+# Loading user erros
+
+errors = db.load_data(user_id)
+
+# Helper Functions
 
 
 def calculate_dashboard_metrics(
@@ -385,115 +411,40 @@ def render_log_error() -> None:
         )
 
         if st.button("Log Mistake", use_container_width=True):
-            missing_fields = []
-            if not subject.strip():
-                missing_fields.append("Subject")
-            if not topic.strip():
-                missing_fields.append("Topic")
-
-            if missing_fields:
-                st.error(f"Please fill in: {', '.join(missing_fields)}")
-            else:
-                db.log_error(
-                    errors,
-                    subject.strip(),
-                    topic.strip(),
-                    error_type,
-                    description,
-                    date_input,
-                )
-                st.toast(f"✓ Error in {subject} - {topic} logged!", icon="✅")
+            if db.log_error(
+                user_id, subject, topic, error_type, description, date_input
+            ):
+                st.toast(f"Error in {subject} logged!")
                 st.session_state.reset_form = True
-                st.rerun()
+                st.rerun
 
 
 def render_history() -> None:
-    """Render the history page with filterable, editable database table."""
-    from src.interface.streamlit import history_components as hist
-
     st.title("History")
-
-    # Initialize filter state
-    if "history_filters" not in st.session_state:
-        st.session_state.history_filters = {
-            "subjects": [],
-            "topics": [],
-            "error_types": [],
-            "date_from": None,
-            "date_to": None,
-        }
-
-    # Filter button and active filter tags
-    col_filter, col_space = st.columns([2, 5])
+    col_filter, _ = st.columns([2, 5])
     with col_filter:
-        hist.render_filter_popup()
+        hist.render_active_filters()
+        filters = st.session_state.history_filters
+        filtered_data = hist.apply_filters(errors, filters)
 
-    # Show active filters
-    hist.render_active_filters()
+        st.markdown(
+            f'<p style="color:#64748b;font-size:0.95rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(errors)}</strong> records</p>',
+            unsafe_allow_html=True,
+        )
 
-    # Load and filter data
-    all_data = db.load_data()
-    filters = st.session_state.history_filters
-    filtered_data = hist.apply_filters(all_data, filters)
-
-    # Display record count
-    st.markdown(
-        f'<p style="color: #64748b; font-size: 0.95rem; margin-top: 1rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(all_data)}</strong> records</p>',
-        unsafe_allow_html=True,
-    )
-
-    # Render editable table
-    if filtered_data:
-        edited_df = hist.render_editable_table(filtered_data)
-
-        # Save changes button - aligned with table
-        if edited_df is not None and st.button(
-            "Save Changes", use_container_width=True, type="primary"
-        ):
-            try:
-                # Convert edited DataFrame back to list of dicts
-                # Rename columns back to original field names
-                edited_df.columns = [
-                    "id",
-                    "subject",
-                    "topic",
-                    "type",
-                    "description",
-                    "date",
-                ]
-                updated_records = cast(List[Dict[str, Any]], edited_df.to_dict("records"))
-
-                # Generate IDs for new records (rows without ID or with NaN ID)
-                # Import the internal _generate_id function
-                from src.services.db_service import _generate_id
-
-                for record in updated_records:
-                    if (
-                        not record.get("id")
-                        or str(record.get("id")).strip() == ""
-                        or str(record.get("id")) == "nan"
-                    ):
-                        record["id"] = _generate_id()
-
-                # Update database
-                success = db.update_errors(updated_records)
-
-                if success:
+        if filtered_data:
+            edited_df = hist.render_editable_table(filtered_data)
+            if edited_df is not None and st.button(
+                "Save Changes", use_container_width=True, type="primary"
+            ):
+                updated_records = cast(
+                    List[Dict[str, Any]], edited_df.to_dict("records")
+                )
+                if db.update_errors(user_id, updated_records):
                     st.success("Changes saved successfully!")
-                    # Reload data in main app
-                    st.cache_data.clear()
                     st.rerun()
                 else:
-                    st.error("Failed to save changes. Please try again.")
-            except db.ValidationError as e:
-                st.error(f"Validation error: {str(e)}")
-            except Exception as e:
-                st.error(f"Error saving changes: {str(e)}")
-
-    else:
-        st.info(
-            "No records match your filters. Try adjusting the filter criteria or log some errors!"
-        )
+                    st.info("No records match your filters.")
 
 
 # Main Application
@@ -506,21 +457,38 @@ st.set_page_config(
 )
 init_session_state()
 
-raw_menu = st.query_params.get("menu", "Dashboard")
-menu_from_url = raw_menu[0] if isinstance(raw_menu, list) else raw_menu
-st.session_state["current_menu"] = menu_from_url
 
 styles.local_css()
 
 # Sidebar navigation
 with st.sidebar:
     ui.render_sidebar_header()
+    # Mostra quem está logado
+    st.markdown(
+        f"""
+        <div style="padding: 10px; background: rgba(0,0,0,0.03); border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.05);">
+            <small style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em;">Logged in as</small>
+            <div style="color: #334155; font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis;">{current_user.email}</div>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
     st.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
     ui.render_menu_button("Dashboard", "Dashboard", ICON_DASHBOARD)
     ui.render_menu_button("Log Mistake", "Log Error", ICON_LOG_ERROR)
     ui.render_menu_button("History", "History", ICON_HISTORY)
     st.markdown("</div>", unsafe_allow_html=True)
-    menu = st.session_state.get("current_menu", "Dashboard")
+
+    st.markdown("---")
+    if st.button("Sair / Logout", use_container_width=True):
+        auth_service.sign_out()
+        st.session_state["user"] = None
+        st.rerun()
+
+raw_menu = st.query_params.get("menu", "Dashboard")
+menu = raw_menu[0] if isinstance(raw_menu, list) else raw_menu
+st.session_state["current_menu"] = menu
 
 # Route to page
 if menu == "Dashboard":

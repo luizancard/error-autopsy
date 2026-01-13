@@ -37,13 +37,7 @@ def get_unique_values(data: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     return {"subjects": sorted(list(subjects)), "topics": sorted(list(topics))}
 
 
-def render_filter_popup() -> None:
-    """
-    Render the filter popup modal with multi-select controls.
-
-    Uses Streamlit's popover component for a clean popup experience.
-    Updates session state with selected filters.
-    """
+def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
     # Initialize filter state if not exists
     if "history_filters" not in st.session_state:
         st.session_state.history_filters = {
@@ -55,9 +49,6 @@ def render_filter_popup() -> None:
         }
 
     # Get unique values from current data
-    from src.services import db_service as db
-
-    all_data = db.load_data()
     unique_vals = get_unique_values(all_data)
 
     with st.popover("Filter", use_container_width=False):
