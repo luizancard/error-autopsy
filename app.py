@@ -63,16 +63,10 @@ def init_session_state() -> None:
 init_session_state()
 styles.local_css()
 
-# Check authentication - try to restore session first
+# Check authentication
 if not st.session_state["user"]:
-    # Try to get existing session from Supabase
-    existing_user = auth_service.get_session()
-    if existing_user:
-        st.session_state["user"] = existing_user
-    else:
-        # No session found, show login
-        login_component.render_login()
-        st.stop()
+    login_component.render_login()
+    st.stop()
 
 # User data
 current_user = st.session_state["user"]
