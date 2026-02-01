@@ -38,7 +38,7 @@ def get_unique_values(data: List[Dict[str, Any]]) -> Dict[str, List[str]]:
 
 
 def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
-    # Initialize filter state if not exists
+    # Inicializa o estado se não existir
     if "history_filters" not in st.session_state:
         st.session_state.history_filters = {
             "subjects": [],
@@ -48,12 +48,11 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
             "date_to": None,
         }
 
-    # Get unique values from current data
+    # Pega valores únicos dos dados passados
     unique_vals = get_unique_values(all_data)
 
     with st.popover("Filter", use_container_width=False):
         st.markdown("### Filter Options")
-        st.markdown("Select multiple criteria to filter your data.")
 
         # Subject filter
         st.markdown("**Subject**")
@@ -131,10 +130,9 @@ def render_active_filters() -> None:
     Display active filter tags/pills below the filter button.
     """
     filters = st.session_state.get("history_filters", {})
-
     active_filters = []
 
-    # Collect active filters
+    # Coleta filtros ativos para exibição
     if filters.get("subjects"):
         for subj in filters["subjects"]:
             active_filters.append(("Subject", subj))
@@ -148,34 +146,27 @@ def render_active_filters() -> None:
             active_filters.append(("Error Type", err_type))
 
     if filters.get("date_from") or filters.get("date_to"):
-        date_from = filters.get("date_from")
-        date_to = filters.get("date_to")
-        date_str = ""
-        if date_from and date_to:
-            date_str = (
-                f"{date_from.strftime('%d/%m/%Y')} - {date_to.strftime('%d/%m/%Y')}"
-            )
-        elif date_from:
-            date_str = f"From {date_from.strftime('%d/%m/%Y')}"
-        elif date_to:
-            date_str = f"Until {date_to.strftime('%d/%m/%Y')}"
-        if date_str:
-            active_filters.append(("Date", date_str))
+        d_from = filters.get("date_from")
+        d_to = filters.get("date_to")
+        label = ""
+        if d_from and d_to:
+            label = f"{d_from.strftime('%d/%m')} - {d_to.strftime('%d/%m')}"
+        elif d_from:
+            label = f"From {d_from.strftime('%d/%m')}"
+        elif d_to:
+            label = f"Until {d_to.strftime('%d/%m')}"
 
-    # Render filter tags
+        if label:
+            active_filters.append(("Date", label))
+
+    # Renderiza as tags visualmente
     if active_filters:
-        st.markdown(
-            '<div style="margin-top: 1rem; margin-bottom: 1rem;">',
-            unsafe_allow_html=True,
-        )
-
-        filter_html = '<div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">'
-        for label, value in active_filters:
-            filter_html += f'<span class="filter-tag"><span class="filter-tag-label">{label}:</span> {value}</span>'
-        filter_html += "</div>"
-
-        st.markdown(filter_html, unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown('<div style="margin: 10px 0;">', unsafe_allow_html=True)
+        html = '<div style="display: flex; flex-wrap: wrap; gap: 8px;">'
+        for cat, val in active_filters:
+            html += f'<span style="background: #e0e7ff; color: #3730a3; padding: 4px 8px; border-radius: 4px; font-size: 0.85rem;"><b>{cat}:</b> {val}</span>'
+        html += "</div></div>"
+        st.markdown(html, unsafe_allow_html=True)
 
 
 def apply_filters(

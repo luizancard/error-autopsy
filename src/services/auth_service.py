@@ -31,6 +31,21 @@ def sign_in(email: str, password: str) -> Optional[Any]:
         return None
 
 
+def sign_up(email: str, password: str) -> bool:
+    if not supabase:
+        st.error("Connection Error")
+        return False
+    try:
+        response = supabase.auth.sign_up({"email": email, "password": password})
+        if response.user:
+            logger.info(f"Account created: {email}")
+            return True
+        return False
+    except Exception as e:
+        logger.error(f"Error in creating the account: {e}")
+        return False
+
+
 def sign_out() -> bool:
     if not supabase:
         return False
@@ -39,5 +54,5 @@ def sign_out() -> bool:
         supabase.auth.sign_out()
         return True
     except Exception as e:
-        logger.error(f"Erro no logout: {e}")
+        logger.error(f"Logout Error: {e}")
         return False

@@ -17,31 +17,38 @@ def render_login():
             """,
             unsafe_allow_html=True,
         )
+        # creating 2 tabs to separete the login x sign up
+        tab_login, tab_signup = st.tabs([""])
         with st.form("login_form"):
-            email = st.text_input("E-mail", placeholder="your@email.com")
-            password = st.text_input("Password", type="password")
+            email = st.text_input("E-mail", placeholder="seu@email.com")
+            password = st.text_input("Senha", type="password", placeholder="••••••••")
 
             submit = st.form_submit_button(
-                "Enter", use_container_width=True, type="primary"
+                "Entrar", use_container_width=True, type="primary"
             )
 
             if submit:
                 if not email or not password:
-                    st.warning("Fill in all the fields")
+                    st.warning("Preencha todos os campos.")
                 else:
-                    with st.spinner("Authenticating...."):
+                    with st.spinner("Autenticando..."):
+                        # Chama o serviço de autenticação que criamos
                         user = auth_service.sign_in(email, password)
-                    if user:
-                        st.session_state["suer"] = user
-                        st.success("Login completed with success!")
-                        time.sleep(0.5)
-                        st.rerun()
-                    else:
-                        st.error("E-mail or Password incorrect.")
+
+                        if user:
+                            # Sucesso! Salva na sessão e recarrega
+                            st.session_state["user"] = user
+                            st.success("Login realizado com sucesso!")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("E-mail ou senha incorretos.")
+
         st.markdown(
             """
-            <div style="text-align: center; margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;>
-                No account? Create One
+            <div style="text-align: center; margin-top: 1rem; font-size: 0.8rem; color: #94a3b8;">
+                Ainda não tem conta? Peça ao administrador para criar uma no Supabase.
+            </div>
             """,
             unsafe_allow_html=True,
         )
