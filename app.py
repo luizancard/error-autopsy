@@ -30,6 +30,7 @@ from src.services import db_service as db
 
 importlib.reload(mt)
 
+# App Configuration
 st.set_page_config(
     page_title=AppConfig.PAGE_TITLE,
     layout=AppConfig.LAYOUT,
@@ -52,6 +53,7 @@ def init_session_state() -> None:
         "success_message": "",
         "show_success": False,
         "chart_view": 0,
+        "current_menu": "Dashboard",
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -59,19 +61,24 @@ def init_session_state() -> None:
 
 
 init_session_state()
-
-if not st.session_state["user"]:
-    login_component.render_login()
-    st.stop()
-
-# User data
-
-current_user = st.session_state["user"]
-user_id = current_user.id
 styles.local_css()
 
-# Loading user erros
+# Check authentication - try to restore session first
+if not st.session_state["user"]:
+    # Try to get existing session from Supabase
+    existing_user = auth_service.get_session()
+    if existing_user:
+        st.session_state["user"] = existing_user
+    else:
+        # No session found, show login
+        login_component.render_login()
+        st.stop()
 
+# User data
+current_user = st.session_state["user"]
+user_id = current_user.id
+
+# Loading user errors
 errors = db.load_data(user_id)
 
 # Helper Functions
@@ -410,55 +417,40 @@ def render_log_error() -> None:
             key="description_input",
         )
 
-        if st.button("Log Mistake", use_container_width=True):
+        if st.button("Log a Mistake", use_container_width=True):
             if db.log_error(
                 user_id, subject, topic, error_type, description, date_input
             ):
-                st.toast(f"Error in {subject} logged!")
+                st.toast(f"Logged error for {subject}.")
                 st.session_state.reset_form = True
-                st.rerun
+                st.rerun()
 
 
 def render_history() -> None:
     st.title("History")
-    col_filter, _ = st.columns([2, 5])
-    with col_filter:
-        hist.render_active_filters()
-        filters = st.session_state.history_filters
-        filtered_data = hist.apply_filters(errors, filters)
 
-        st.markdown(
-            f'<p style="color:#64748b;font-size:0.95rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(errors)}</strong> records</p>',
-            unsafe_allow_html=True,
-        )
+    hist.render_filter_popup(errors)
+    hist.render_active_filters()
+    filters = st.session_state.history_filters
+    filtered_data = hist.apply_filters(errors, filters)
 
-        if filtered_data:
-            edited_df = hist.render_editable_table(filtered_data)
-            if edited_df is not None and st.button(
-                "Save Changes", use_container_width=True, type="primary"
-            ):
-                updated_records = cast(
-                    List[Dict[str, Any]], edited_df.to_dict("records")
-                )
-                if db.update_errors(user_id, updated_records):
-                    st.success("Changes saved successfully!")
-                    st.rerun()
-                else:
-                    st.info("No records match your filters.")
+    st.markdown(
+        f'<p style="color:#64748b;font-size:0.95rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(errors)}</strong> records</p>',
+        unsafe_allow_html=True,
+    )
 
+    if filtered_data:
+        edited_df = hist.render_editable_table(filtered_data)
+        if edited_df is not None and st.button(
+            "Save Changes", use_container_width=True, type="primary"
+        ):
+            updated_records = cast(List[Dict[str, Any]], edited_df.to_dict("records"))
+            if db.update_errors(user_id, updated_records):
+                st.success("Changes saved successfully!")
+                st.rerun()
+    else:
+        st.info("No records match your filters.")
 
-# Main Application
-
-st.set_page_config(
-    page_title=AppConfig.PAGE_TITLE,
-    layout=AppConfig.LAYOUT,
-    page_icon=AppConfig.PAGE_ICON,
-    initial_sidebar_state="expanded",
-)
-init_session_state()
-
-
-styles.local_css()
 
 # Sidebar navigation
 with st.sidebar:
@@ -467,8 +459,8 @@ with st.sidebar:
     st.markdown(
         f"""
         <div style="padding: 10px; background: rgba(0,0,0,0.03); border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.05);">
-            <small style="color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em;">Logged in as</small>
-            <div style="color: #334155; font-weight: 600; font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis;">{current_user.email}</div>
+            <small style="color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em;">Logged in as</small>
+            <div style="color: #64748b; font-weight: 500; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis;">{current_user.email}</div>
         </div>
     """,
         unsafe_allow_html=True,
@@ -476,12 +468,29 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
     ui.render_menu_button("Dashboard", "Dashboard", ICON_DASHBOARD)
-    ui.render_menu_button("Log Mistake", "Log Error", ICON_LOG_ERROR)
+    ui.render_menu_button("Log a Mistake", "Log Error", ICON_LOG_ERROR)
     ui.render_menu_button("History", "History", ICON_HISTORY)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
-    if st.button("Sair / Logout", use_container_width=True):
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stSidebar"] button[kind="secondary"] {
+            background: transparent !important;
+            border: 1px solid rgba(0,0,0,0.1) !important;
+            color: #64748b !important;
+            transition: all 0.2s ease !important;
+        }
+        div[data-testid="stSidebar"] button[kind="secondary"]:hover {
+            background: rgba(0,0,0,0.05) !important;
+            border-color: rgba(0,0,0,0.15) !important;
+        }
+        </style>
+    """,
+        unsafe_allow_html=True,
+    )
+    if st.button("Log Out", use_container_width=True, type="secondary"):
         auth_service.sign_out()
         st.session_state["user"] = None
         st.rerun()

@@ -1,63 +1,96 @@
-# Error Autopsy CLI
-> A tool for high-performance students to analyze exam errors, understand their own patterns, and optimize study routines.
+# Error Autopsy
+> A modern web application for high-performance students to analyze exam errors, understand their patterns, and optimize study routines.
 
-## Why?
+## 🎯 Why?
 The best strategy to achieve top grades isn't just to study hard, but to study smart and optimize your time.
 
-**Error Autopsy** is a command-line interface (CLI) tool designed to track, categorize, and analyze mistakes made in mock exams. By shifting the focus from the score you got to *why* you lost those points, this tool provides data-driven insights to fix the root cause of academic gaps.
+**Error Autopsy** is a web application designed to track, categorize, and analyze mistakes made in exams. By shifting the focus from the score you got to *why* you lost those points, this tool provides data-driven insights to fix the root cause of academic gaps.
 
-## Features
-### 1. Smart Logging
-- Log errors with specific metadata: **Subject**, **Topic**, **Description**, and **Error Type**.
-- Automatic date handling.
-- Data persistence using JSON.
+## ✨ Features
 
-### 2. Visual Analytics (Matplotlib)
-- **Dashboard View:** Generates a 4-panel dashboard to visualize:
-  - Error distribution by Type.
-  - Most problematic Subjects.
-  - Specific Topics with high error rates.
-  - Timeline of errors (Monthly).
+### 1. Smart Error Logging
+- Log errors with specific metadata: **Subject**, **Topic**, **Description**, and **Error Type**
+- Automatic date handling
+- Persistent storage with Supabase
 
-### 3. AI Performance Coach (Google Gemini 2.5)
-- Integrated with **Google Gemini 2.5 Flash**.
-- **Deep Diagnosis:** Uses a "Senior Performance Psychologist" prompt to analyze your patterns and distinguish between lack of knowledge vs. lack of exam technique.
-- **Study Plans:** Generates tactical, short-term study plans based on your weakest topics.
+### 2. Visual Analytics Dashboard
+- **Interactive Charts:** Real-time visualization with Altair
+  - Error distribution by Type (Pie Chart)
+  - Most problematic Subjects (Bar Chart)
+  - Specific Topics with high error rates
+  - Timeline of errors over time
 
-## Tech Stack
-- **Language:** Python 3.13+
-- **Database:** JSON (Local storage)
-- **Data Visualization:** Matplotlib
-- **AI Integration:** Google GenAI SDK (`google-genai`)
-- **Environment Management:** Python Dotenv
+### 3. AI-Powered Insights
+- Pattern recognition to identify your weakest areas
+- Actionable recommendations based on error types
+- Focus on avoidable errors vs. knowledge gaps
 
-## Installation
-1) Clone the repository
+### 4. User Authentication
+- Secure login with Supabase Auth
+- Session persistence
+- Multi-user support
+
+## 🛠️ Tech Stack
+- **Frontend:** Streamlit
+- **Database:** Supabase (PostgreSQL)
+- **Authentication:** Supabase Auth
+- **Data Visualization:** Altair
+- **Language:** Python 3.10+
+
+## 🚀 Quick Start
+
+### Local Development
+
+1. Clone the repository
 ```bash
-git clone https://github.com/SEU_USUARIO/error-autopsy.git
+git clone https://github.com/YOUR_USERNAME/error-autopsy.git
 cd error-autopsy
 ```
 
-2) Create and activate a virtual environment (recommended)
+2. Create and activate a virtual environment
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ```
 
-3) Install dependencies
+3. Install dependencies
 ```bash
-python -m pip install -r requirements.txt
-```
-Dependencies are listed in `requirements.txt` at the project root.
-
-4) Configure your API key
-- Get a free key at Google AI Studio.
-- Create a `.env` file in the project root:
-```bash
-echo "GEMINI_API_KEY=your_api_key_here" > .env
+pip install -r requirements.txt
 ```
 
-5) Run the app
+4. Configure environment variables
+Create a `.env` file in the project root:
 ```bash
-python main.py
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_anon_key
 ```
+
+5. Run the app
+```bash
+streamlit run app.py
+```
+
+### Deploy to Streamlit Cloud
+
+1. Push your code to GitHub
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Connect your repository
+4. Add secrets in Settings → Secrets:
+   ```toml
+   SUPABASE_URL = "your_url"
+   SUPABASE_KEY = "your_key"
+   ```
+5. Deploy! 🎉
+
+## 📊 Usage
+
+1. **Sign Up / Login:** Create an account or log in
+2. **Log Errors:** Navigate to "Log a Mistake" and record your errors
+3. **Analyze:** View your dashboard to see patterns
+4. **Review History:** Check past errors and edit if needed
+5. **Improve:** Use insights to focus your studies
+
+## 🔒 Security
+- Environment variables are never committed to git
+- Supabase handles authentication securely
+- User data is isolated per account

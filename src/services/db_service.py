@@ -19,7 +19,7 @@ def init_supabase() -> Client:
     key = os.getenv("SUPABASE_KEY") or st.secrets.get("SUPABASE_KEY")
 
     if not url or not key:
-        st.error("ERRO CRÍTICO: Credenciais do Supabase não encontradas.")
+        st.error("CRITICAL ERROR: Supabase credentials not found.")
         st.stop()
 
     return create_client(url, key)
@@ -45,7 +45,7 @@ def _format_date_iso(date_val: date | datetime | str) -> str:
 
 def _validate_input(subject: str, topic: str, error_type: str) -> None:
     if not all([subject.strip(), topic.strip(), error_type.strip()]):
-        raise ValidationError("Preencha todos os campos obrigatórios.")
+        raise ValidationError("Please fill in all required fields.")
 
 
 def load_data(user_id: str) -> List[Dict[str, Any]]:
@@ -117,7 +117,7 @@ def log_error(
         return True
     except Exception as e:
         logger.error(f"Erro ao salvar: {e}")
-        st.error(f"Erro ao salvar: {e}")
+        st.error(f"Failed to save: {e}")
         return False
 
 

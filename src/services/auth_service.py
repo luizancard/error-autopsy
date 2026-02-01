@@ -8,13 +8,30 @@ from src.services.db_service import supabase
 logger = logging.getLogger(__name__)
 
 
-def sign_in(email: str, password: str) -> Optional[Any]:
+def get_session() -> Optional[Any]:
     """
-    Autentica o usuário no Supabase.
+    Get current session from Supabase.
     """
     if not supabase:
-        logger.error("Erro: Cliente Supabase não inicializado.")
-        st.error("Erro de conexão com o servidor de autenticação.")
+        return None
+
+    try:
+        session = supabase.auth.get_session()
+        if session and session.user:
+            return session.user
+        return None
+    except Exception as e:
+        logger.error(f"Error getting session: {e}")
+        return None
+
+
+def sign_in(email: str, password: str) -> Optional[Any]:
+    """
+    Authenticate user with Supabase.
+    """
+    if not supabase:
+        logger.error("Error: Supabase client not initialized.")
+        st.error("Authentication server connection error.")
         return None
 
     try:
@@ -23,11 +40,11 @@ def sign_in(email: str, password: str) -> Optional[Any]:
             {"email": email, "password": password}
         )
 
-        logger.info(f"Usuário {email} logado com sucesso.")
+        logger.info(f"User {email} logged in successfully.")
         return response.user
 
     except Exception as e:
-        logger.warning(f"Login falhou para {email}: {e}")
+        logger.warning(f"Login failed for {email}: {e}")
         return None
 
 
