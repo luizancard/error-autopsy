@@ -19,13 +19,8 @@ The best strategy to achieve top grades isn't just to study hard, but to study s
   - Most problematic Subjects (Bar Chart)
   - Specific Topics with high error rates
   - Timeline of errors over time
-
-### 3. AI-Powered Insights
-- Pattern recognition to identify your weakest areas
-- Actionable recommendations based on error types
-- Focus on avoidable errors vs. knowledge gaps
-
-### 4. User Authentication
+  - 
+### 5. User Authentication
 - Secure login with Supabase Auth
 - Session persistence
 - Multi-user support
