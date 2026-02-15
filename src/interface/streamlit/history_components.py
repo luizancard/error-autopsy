@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Set
 import pandas as pd
 
 import streamlit as st
-from config import ERROR_TYPES
+from config import DIFFICULTY_LEVELS, ERROR_TYPES
 
 
 def get_unique_values(data: List[Dict[str, Any]]) -> Dict[str, List[str]]:
@@ -44,6 +44,7 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
             "subjects": [],
             "topics": [],
             "error_types": [],
+            "difficulties": [],
             "date_from": None,
             "date_to": None,
         }
@@ -84,6 +85,16 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
             label_visibility="collapsed",
         )
 
+        # Difficulty filter
+        st.markdown("**Difficulty**")
+        selected_difficulties = st.multiselect(
+            "Select difficulties",
+            options=DIFFICULTY_LEVELS,
+            default=st.session_state.history_filters["difficulties"],
+            key="filter_difficulties_select",
+            label_visibility="collapsed",
+        )
+
         # Date range filter
         st.markdown("**Date Range**")
         col1, col2 = st.columns(2)
@@ -108,6 +119,7 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
                     "subjects": selected_subjects,
                     "topics": selected_topics,
                     "error_types": selected_types,
+                    "difficulties": selected_difficulties,
                     "date_from": date_from if date_from else None,
                     "date_to": date_to if date_to else None,
                 }
@@ -119,6 +131,7 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
                     "subjects": [],
                     "topics": [],
                     "error_types": [],
+                    "difficulties": [],
                     "date_from": None,
                     "date_to": None,
                 }
@@ -144,6 +157,10 @@ def render_active_filters() -> None:
     if filters.get("error_types"):
         for err_type in filters["error_types"]:
             active_filters.append(("Error Type", err_type))
+
+    if filters.get("difficulties"):
+        for diff in filters["difficulties"]:
+            active_filters.append(("Difficulty", diff))
 
     if filters.get("date_from") or filters.get("date_to"):
         d_from = filters.get("date_from")
@@ -208,6 +225,14 @@ def apply_filters(
             if record.get("type") in filters["error_types"]
         ]
 
+    # Filter by difficulties
+    if filters.get("difficulties"):
+        filtered_data = [
+            record
+            for record in filtered_data
+            if record.get("difficulty") in filters["difficulties"]
+        ]
+
     # Filter by date range
     date_from = filters.get("date_from")
     date_to = filters.get("date_to")
@@ -253,11 +278,27 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
     df = pd.DataFrame(data)
 
     # Reorder columns for better UX
-    column_order = ["id", "subject", "topic", "type", "description", "date"]
+    column_order = [
+        "id",
+        "subject",
+        "topic",
+        "type",
+        "difficulty",
+        "description",
+        "date",
+    ]
     df = df[column_order]
 
     # Rename columns for display
-    df.columns = ["ID", "Subject", "Topic", "Error Type", "Description", "Date"]
+    df.columns = [
+        "ID",
+        "Subject",
+        "Topic",
+        "Error Type",
+        "Difficulty",
+        "Description",
+        "Date",
+    ]
 
     # Configure column settings
     column_config = {
@@ -280,6 +321,12 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
             "Error Type",
             width="medium",
             options=ERROR_TYPES,
+            required=True,
+        ),
+        "Difficulty": st.column_config.SelectboxColumn(
+            "Difficulty",
+            width="small",
+            options=DIFFICULTY_LEVELS,
             required=True,
         ),
         "Description": st.column_config.TextColumn(

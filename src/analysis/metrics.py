@@ -81,6 +81,27 @@ def count_topics(data: List[Dict[str, Any]]) -> Dict[str, int]:
     return topic_counts
 
 
+def count_difficulties(data: List[Dict[str, Any]]) -> Dict[str, int]:
+    """
+    Count errors grouped by difficulty level.
+
+    Args:
+        data: List of error records.
+
+    Returns:
+        Dictionary mapping difficulty level to count.
+    """
+    if not data:
+        return {}
+
+    difficulty_counts: Dict[str, int] = {}
+    for error in data:
+        difficulty = error.get("difficulty", "Medium") or "Medium"
+        difficulty_counts[difficulty] = difficulty_counts.get(difficulty, 0) + 1
+
+    return difficulty_counts
+
+
 def filter_data_by_range(
     data: List[Dict[str, Any]], months: Optional[int]
 ) -> List[Dict[str, Any]]:

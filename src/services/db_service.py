@@ -97,6 +97,7 @@ def log_error(
     error_type: str,
     description: Optional[str],
     date_val: date,
+    difficulty: str = "Medium",
 ) -> bool:
     if not supabase:
         return False
@@ -111,6 +112,7 @@ def log_error(
             "type": error_type,
             "description": description.strip() if description else "",
             "date": _format_date_iso(date_val),
+            "difficulty": difficulty,
         }
 
         supabase.table("errors").insert(payload).execute()
@@ -140,6 +142,7 @@ def update_errors(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
                     "type": rec["type"],
                     "description": rec.get("description", ""),
                     "date": _format_date_iso(rec["date"]),
+                    "difficulty": rec.get("difficulty", "Medium"),
                 }
             )
 

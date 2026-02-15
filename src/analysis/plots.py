@@ -162,3 +162,55 @@ def chart_error_types_pie(
     )
 
     return (pie + text).properties(height=ChartConfig.HEIGHT_LARGE)
+
+
+def chart_difficulties(
+    difficulty_data: Optional[Dict[str, int]],
+) -> Optional[alt.Chart]:
+    """
+    Create a horizontal bar chart showing error distribution by difficulty level.
+
+    Args:
+        difficulty_data: Dictionary mapping difficulty levels to counts.
+
+    Returns:
+        Altair chart object or None if no data.
+    """
+    if not difficulty_data:
+        return None
+
+    # Define order for difficulties (Easy -> Medium -> Hard)
+    difficulty_order = ["Easy", "Medium", "Hard"]
+
+    # Create DataFrame with ordered difficulties
+    df = pd.DataFrame(
+        list(difficulty_data.items()),
+        columns=["Difficulty", "Count"],
+    )
+
+    # Color mapping for difficulty levels
+    color_scale = alt.Scale(
+        domain=["Easy", "Medium", "Hard"],
+        range=["#10b981", "#f59e0b", "#ef4444"],  # Green, Amber, Red
+    )
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            y=alt.Y(
+                "Difficulty:N",
+                title=None,
+                sort=difficulty_order,
+            ),
+            x=alt.X("Count:Q", title=None),
+            color=alt.Color(
+                "Difficulty:N",
+                scale=color_scale,
+                legend=None,
+            ),
+            tooltip=["Difficulty", "Count"],
+        )
+        .properties(height=180)
+    )
+    return _configure_chart_style(chart)

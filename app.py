@@ -14,7 +14,9 @@ from streamlit_cookies_controller import CookieController
 from assets import styles
 from config import (
     AVOIDABLE_ERROR_TYPES,
+    DEFAULT_DIFFICULTY,
     DEFAULT_ERROR_TYPE,
+    DIFFICULTY_LEVELS,
     ERROR_TYPES,
     AppConfig,
     Colors,
@@ -48,6 +50,7 @@ def init_session_state() -> None:
         "topic_input": "",
         "description_input": "",
         "error_type_select": DEFAULT_ERROR_TYPE,
+        "difficulty_select": DEFAULT_DIFFICULTY,
         "date_input": date.today(),
         "time_filter": TimeFilter.DEFAULT,
         "reset_form": False,
@@ -67,38 +70,25 @@ styles.local_css()
 # Cookie controller for persistent login (24h)
 cookie_controller = CookieController()
 
-# Wait for cookies to load from browser before deciding auth state.
-# On first render the JS component hasn't communicated yet, so getAll() is empty.
-all_cookies = cookie_controller.getAll()
-_cookies_ready = all_cookies is not None and len(all_cookies) > 0
-
 # Try to restore session from browser cookies on page reload
-if not st.session_state["user"]:
-    if _cookies_ready:
-        access_token = cookie_controller.get("sb_access_token")
-        refresh_token = cookie_controller.get("sb_refresh_token")
-        if access_token and refresh_token:
-            user = auth_service.restore_session(access_token, refresh_token)
-            if user:
-                st.session_state["user"] = user
-            else:
-                # Tokens expired or invalid — clean up
-                cookie_controller.remove("sb_access_token")
-                cookie_controller.remove("sb_refresh_token")
+# Only run cookie check once per session to avoid repeated delays
+if not st.session_state["user"] and not st.session_state.get("_cookie_check_done"):
+    # Try to get tokens directly without waiting for getAll()
+    access_token = cookie_controller.get("sb_access_token")
+    refresh_token = cookie_controller.get("sb_refresh_token")
+
+    if access_token and refresh_token:
+        # We have tokens - restore session
+        user = auth_service.restore_session(access_token, refresh_token)
+        if user:
+            st.session_state["user"] = user
         else:
-            # Cookies loaded but no tokens → truly not logged in
-            st.session_state["_no_tokens"] = True
-    elif not st.session_state.get("_no_tokens"):
-        # Cookies haven't arrived yet — show loading instead of login flash
-        st.markdown(
-            """
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;">
-                <p style="color:#94a3b8;font-size:1.1rem;">Loading session...</p>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-        st.stop()
+            # Tokens expired or invalid — clean up
+            cookie_controller.remove("sb_access_token")
+            cookie_controller.remove("sb_refresh_token")
+
+    # Mark that we've checked cookies, even if tokens weren't found
+    st.session_state["_cookie_check_done"] = True
 
 # Save tokens to cookies right after a fresh login
 if st.session_state.get("_save_tokens"):
@@ -113,6 +103,8 @@ if st.session_state.get("_save_tokens"):
         max_age=86400,
     )
     del st.session_state["_save_tokens"]
+    # Reset cookie check flag so we can verify new tokens on next reload
+    st.session_state["_cookie_check_done"] = False
 
 # Check authentication
 if not st.session_state["user"]:
@@ -369,21 +361,41 @@ def render_pie_chart_section(data: List[Dict[str, Any]], selected_filter: str) -
         selected_filter: Current time filter label.
     """
     st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
-    st.markdown(
-        """
-        <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Breakdown</h3>
-        <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">Distribution by mistake type</p>
-        """,
-        unsafe_allow_html=True,
-    )
 
-    col_content, _ = st.columns([3, 2])
-    with col_content:
+    # Create two columns for pie chart and difficulty chart
+    col_pie, col_difficulty = st.columns(2)
+
+    with col_pie:
+        st.markdown(
+            """
+            <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Breakdown</h3>
+            <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">Distribution by mistake type</p>
+            """,
+            unsafe_allow_html=True,
+        )
+
         type_data = mt.count_error_types(data)
         if not type_data:
             st.info(f"No data available for {selected_filter}.")
         else:
             chart = pt.chart_error_types_pie(type_data)
+            if chart:
+                st.altair_chart(chart, use_container_width=True)
+
+    with col_difficulty:
+        st.markdown(
+            """
+            <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Difficulty Level</h3>
+            <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">Errors by exercise difficulty</p>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        difficulty_data = mt.count_difficulties(data)
+        if not difficulty_data:
+            st.info(f"No data available for {selected_filter}.")
+        else:
+            chart = pt.chart_difficulties(difficulty_data)
             if chart:
                 st.altair_chart(chart, use_container_width=True)
 
@@ -439,6 +451,7 @@ def render_log_error() -> None:
             st.session_state.topic_input = ""
             st.session_state.description_input = ""
             st.session_state.error_type_select = DEFAULT_ERROR_TYPE
+            st.session_state.difficulty_select = DEFAULT_DIFFICULTY
             st.session_state.date_input = date.today()
             st.session_state.reset_form = False
 
@@ -456,6 +469,10 @@ def render_log_error() -> None:
                 "Error Type", ERROR_TYPES, key="error_type_select"
             )
 
+        difficulty = st.selectbox(
+            "Exercise Difficulty", DIFFICULTY_LEVELS, key="difficulty_select"
+        )
+
         description = st.text_area(
             "Description (Optional)",
             placeholder="Why do you think this happened?",
@@ -464,7 +481,7 @@ def render_log_error() -> None:
 
         if st.button("Log a Mistake", use_container_width=True):
             if db.log_error(
-                user_id, subject, topic, error_type, description, date_input
+                user_id, subject, topic, error_type, description, date_input, difficulty
             ):
                 st.toast(f"Logged error for {subject}.")
                 st.session_state.reset_form = True
@@ -540,7 +557,7 @@ with st.sidebar:
         st.session_state["user"] = None
         st.session_state.pop("access_token", None)
         st.session_state.pop("refresh_token", None)
-        st.session_state.pop("_no_tokens", None)
+        st.session_state.pop("_cookie_check_done", None)
         cookie_controller.remove("sb_access_token")
         cookie_controller.remove("sb_refresh_token")
         st.rerun()

@@ -54,6 +54,23 @@ AVOIDABLE_ERROR_TYPES: List[str] = [
     ErrorType.INTERPRETATION.value,
 ]
 
+# Difficulty Levels
+
+
+class DifficultyLevel(Enum):
+    """Enumeration of difficulty levels for exercises."""
+
+    EASY = "Easy"
+    MEDIUM = "Medium"
+    HARD = "Hard"
+
+
+# List of difficulty levels for UI dropdowns
+DIFFICULTY_LEVELS: List[str] = [d.value for d in DifficultyLevel]
+
+# Default difficulty level for forms
+DEFAULT_DIFFICULTY: str = DifficultyLevel.MEDIUM.value
+
 # Date Formats
 
 # Primary format used for storage and display (DD-MM-YYYY)
