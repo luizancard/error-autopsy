@@ -9,6 +9,7 @@ from datetime import date
 from typing import Any, Dict, List, cast
 
 import streamlit as st
+from streamlit_cookies_controller import CookieController
 
 from assets import styles
 from config import (
@@ -62,6 +63,36 @@ def init_session_state() -> None:
 
 init_session_state()
 styles.local_css()
+
+# Cookie controller for persistent login (24h)
+cookie_controller = CookieController()
+
+# Try to restore session from browser cookies on page reload
+if not st.session_state["user"]:
+    access_token = cookie_controller.get("sb_access_token")
+    refresh_token = cookie_controller.get("sb_refresh_token")
+    if access_token and refresh_token:
+        user = auth_service.restore_session(access_token, refresh_token)
+        if user:
+            st.session_state["user"] = user
+        else:
+            # Tokens expired or invalid — clean up
+            cookie_controller.remove("sb_access_token")
+            cookie_controller.remove("sb_refresh_token")
+
+# Save tokens to cookies right after a fresh login
+if st.session_state.get("_save_tokens"):
+    cookie_controller.set(
+        "sb_access_token",
+        st.session_state["access_token"],
+        max_age=86400,  # 24 hours
+    )
+    cookie_controller.set(
+        "sb_refresh_token",
+        st.session_state["refresh_token"],
+        max_age=86400,
+    )
+    del st.session_state["_save_tokens"]
 
 # Check authentication
 if not st.session_state["user"]:
@@ -487,6 +518,10 @@ with st.sidebar:
     if st.button("Log Out", use_container_width=True, type="secondary"):
         auth_service.sign_out()
         st.session_state["user"] = None
+        st.session_state.pop("access_token", None)
+        st.session_state.pop("refresh_token", None)
+        cookie_controller.remove("sb_access_token")
+        cookie_controller.remove("sb_refresh_token")
         st.rerun()
 
 raw_menu = st.query_params.get("menu", "Dashboard")
