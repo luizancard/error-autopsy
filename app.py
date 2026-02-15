@@ -1,7 +1,10 @@
 """
-Error Autopsy - Main Application
+Exam Telemetry System - Main Application
 
-A Streamlit application for tracking and analyzing learning mistakes.
+A Streamlit application for tracking and analyzing exam performance through:
+- Study session logging
+- Mock exam (simulado) tracking
+- Error analysis with AI insights
 """
 
 import importlib
@@ -16,8 +19,6 @@ from config import (
     AVOIDABLE_ERROR_TYPES,
     DEFAULT_DIFFICULTY,
     DEFAULT_ERROR_TYPE,
-    DIFFICULTY_LEVELS,
-    ERROR_TYPES,
     AppConfig,
     Colors,
     TimeFilter,
@@ -26,9 +27,11 @@ from config.icons import ICON_BOOK, ICON_DASHBOARD, ICON_HISTORY, ICON_LOG_ERROR
 from src.analysis import metrics as mt
 from src.analysis import plots as pt
 from src.interface.streamlit import components as ui
+from src.interface.streamlit import dashboard_components as dash
 from src.interface.streamlit import history_components as hist
 from src.interface.streamlit import login_component
-from src.services import auth_service
+from src.interface.streamlit import telemetry_components as telemetry
+from src.services import auth_service, excel_service
 from src.services import db_service as db
 
 importlib.reload(mt)
@@ -126,8 +129,10 @@ if not st.session_state["user"]:
 current_user = st.session_state["user"]
 user_id = current_user.id
 
-# Loading user errors
+# Load all user data
 errors = db.load_data(user_id)
+sessions = db.load_study_sessions(user_id)
+mock_exams = db.load_mock_exams(user_id)
 
 # Helper Functions
 
@@ -415,93 +420,110 @@ def render_pie_chart_section(data: List[Dict[str, Any]], selected_filter: str) -
 
 
 def render_dashboard() -> None:
-    """Render the main dashboard page."""
-    st.title("Your Progress")
-
-    # Time filter
-    col_filter, _ = st.columns([2, 5])
-    with col_filter:
-        selected_filter = st.selectbox(
-            "Time Period",
-            options=TimeFilter.OPTIONS,
-            index=TimeFilter.OPTIONS.index(
-                st.session_state.get("time_filter", TimeFilter.DEFAULT)
-            ),
-            key="time_filter_select",
-        )
-        st.session_state.time_filter = selected_filter
-
-    months_filter = TimeFilter.MONTHS_MAP[selected_filter]
-    filtered_errors = mt.filter_data_by_range(errors, months_filter)
-
-    # Metrics row
-    metrics = calculate_dashboard_metrics(filtered_errors)
-    render_dashboard_metrics(metrics)
-
-    # Charts and insights
-    st.markdown("<div style='margin-top: 2rem;'></div>", unsafe_allow_html=True)
-    chart_col, insight_col = st.columns([2, 1])
-
-    with chart_col:
-        render_chart_section(filtered_errors, selected_filter)
-
-    with insight_col:
-        render_insight_panel(filtered_errors)
-
-    # Pie chart section
-    render_pie_chart_section(filtered_errors, selected_filter)
+    """Render the telemetry dashboard with advanced analytics."""
+    time_filter = st.session_state.get("time_filter", TimeFilter.DEFAULT)
+    dash.render_telemetry_dashboard(errors, sessions, mock_exams, time_filter)
 
 
-def render_log_error() -> None:
-    """Render the log error form page."""
-    st.title("Log a New Mistake")
-
-    with st.container(border=True):
-        if st.session_state.reset_form:
-            st.session_state.subject_input = ""
-            st.session_state.topic_input = ""
-            st.session_state.description_input = ""
-            st.session_state.error_type_select = DEFAULT_ERROR_TYPE
-            st.session_state.difficulty_select = DEFAULT_DIFFICULTY
-            st.session_state.date_input = date.today()
-            st.session_state.reset_form = False
-
-        col1, col2 = st.columns(2)
-        with col1:
-            subject = st.text_input(
-                "Subject", placeholder="e.g., Math", key="subject_input"
-            )
-            topic = st.text_input(
-                "Topic", placeholder="e.g., Geometry", key="topic_input"
-            )
-        with col2:
-            date_input = st.date_input("Date", key="date_input")
-            error_type = st.selectbox(
-                "Error Type", ERROR_TYPES, key="error_type_select"
-            )
-
-        difficulty = st.selectbox(
-            "Exercise Difficulty", DIFFICULTY_LEVELS, key="difficulty_select"
-        )
-
-        description = st.text_area(
-            "Description (Optional)",
-            placeholder="Why do you think this happened?",
-            key="description_input",
-        )
-
-        if st.button("Log a Mistake", use_container_width=True):
-            if db.log_error(
-                user_id, subject, topic, error_type, description, date_input, difficulty
-            ):
-                st.toast(f"Logged error for {subject}.")
-                st.session_state.reset_form = True
-                st.rerun()
+def render_log_session() -> None:
+    """Render the session and exam logging interface."""
+    telemetry.render_tabbed_logger(user_id)
 
 
 def render_history() -> None:
+    """Render the history page with import/export functionality."""
     st.title("History")
 
+    # Export/Import buttons
+    col1, col2, col3 = st.columns([2, 1, 1])
+
+    with col2:
+        if st.button("📥 Import Data", use_container_width=True):
+            st.session_state["show_import"] = True
+
+    with col3:
+        if st.button("📤 Export Data", use_container_width=True):
+            # Generate Excel file
+            excel_buffer = excel_service.export_to_excel(errors, sessions, mock_exams)
+
+            st.download_button(
+                label="Download Excel",
+                data=excel_buffer,
+                file_name=f"exam_telemetry_export_{date.today().strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+
+    # Import modal
+    if st.session_state.get("show_import", False):
+        with st.expander(" Import Data", expanded=True):
+            uploaded_file = st.file_uploader(
+                "Upload Excel File",
+                type=["xlsx", "xls"],
+                help="Upload a file exported from this system or a compatible Excel file",
+            )
+
+            if uploaded_file:
+                errors_import, sessions_import, exams_import = (
+                    excel_service.import_from_excel(uploaded_file, user_id)
+                )
+
+                # Validate
+                is_valid, issues = excel_service.validate_import_data(
+                    errors_import, sessions_import, exams_import
+                )
+
+                if not is_valid:
+                    st.error("**Validation Issues:**")
+                    for issue in issues:
+                        st.write(f"- {issue}")
+                else:
+                    st.success("✅ Ready to import:")
+                    st.info(
+                        f"- {len(errors_import)} errors\n"
+                        f"- {len(sessions_import)} study sessions\n"
+                        f"- {len(exams_import)} mock exams"
+                    )
+
+                    if st.button("Confirm Import", type="primary"):
+                        # Import data
+                        success_count = 0
+
+                        # Import sessions (rename date->date_val, strip user_id)
+                        for session in sessions_import:
+                            s = session.copy()
+                            s["date_val"] = s.pop("date", date.today())
+                            s.pop("user_id", None)
+                            if db.create_study_session(user_id=user_id, **s):
+                                success_count += 1
+
+                        # Import exams
+                        for exam in exams_import:
+                            e = exam.copy()
+                            e["date_val"] = e.pop("date", date.today())
+                            e.pop("user_id", None)
+                            if db.create_mock_exam(user_id=user_id, **e):
+                                success_count += 1
+
+                        # Import errors
+                        for error in errors_import:
+                            er = error.copy()
+                            er["date_val"] = er.pop("date", date.today())
+                            er.pop("user_id", None)
+                            if db.log_error_with_session(user_id=user_id, **er):
+                                success_count += 1
+
+                        st.success(f"Imported {success_count} records!")
+                        st.session_state["show_import"] = False
+                        st.rerun()
+
+            if st.button("Cancel"):
+                st.session_state["show_import"] = False
+                st.rerun()
+
+    st.divider()
+
+    # Existing history functionality
     hist.render_filter_popup(errors)
     hist.render_active_filters()
     filters = st.session_state.history_filters
@@ -541,7 +563,7 @@ with st.sidebar:
 
     st.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
     ui.render_menu_button("Dashboard", "Dashboard", ICON_DASHBOARD)
-    ui.render_menu_button("Log a Mistake", "Log Error", ICON_LOG_ERROR)
+    ui.render_menu_button("Log Session", "Log Session", ICON_LOG_ERROR)
     ui.render_menu_button("History", "History", ICON_HISTORY)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -580,7 +602,10 @@ st.session_state["current_menu"] = menu
 # Route to page
 if menu == "Dashboard":
     render_dashboard()
-elif menu == "Log Error":
-    render_log_error()
+elif menu == "Log Session":
+    render_log_session()
 elif menu == "History":
     render_history()
+else:
+    # Fallback for legacy "Log Error" menu item
+    render_log_session()

@@ -1,8 +1,10 @@
 """
-Centralized configuration for the Error Autopsy application.
+Centralized configuration for the Exam Telemetry System.
 
 This module contains all configurable settings including:
+- Exam type definitions and subject mappings
 - Error type definitions
+- Performance benchmarks (pace, accuracy targets)
 - Date formats
 - Time filter options
 - UI theme colors
@@ -24,7 +26,168 @@ ERROR_LOG_FILE: Path = DATA_DIR / "error_log.json"
 CSS_FILE: Path = ASSETS_DIR / "style.css"
 
 
-# Error Types
+# =============================================================================
+# EXAM TYPES & CONTEXT
+# =============================================================================
+
+
+class ExamType(Enum):
+    """
+    Enumeration of supported competitive exams.
+
+    Each exam type has specific subject mappings and performance benchmarks
+    tailored to the exam's format and difficulty.
+    """
+
+    FUVEST = "FUVEST"  # USP entrance exam
+    ENEM = "ENEM"  # National high school exam
+    UNICAMP = "UNICAMP"  # UNICAMP entrance exam
+    ITA_IME = "ITA/IME"  # Military engineering schools
+    SAT = "SAT"  # US college admissions
+    GENERAL = "General"  # Generic/practice sessions
+
+
+# List of exam types for UI dropdowns
+EXAM_TYPES: List[str] = [e.value for e in ExamType]
+
+# Default exam type
+DEFAULT_EXAM_TYPE: str = ExamType.GENERAL.value
+
+
+# Context-Aware Subject Mappings
+# Maps each exam to its specific subject list
+
+EXAM_SUBJECTS: Dict[str, List[str]] = {
+    "FUVEST": [
+        "Portuguese",
+        "Portuguese Literature",
+        "Mathematics",
+        "Physics",
+        "Chemistry",
+        "Biology",
+        "History",
+        "Geography",
+        "English",
+        "Redação (Essay)",
+    ],
+    "ENEM": [
+        "Linguagens (Languages & Codes)",
+        "Matemática (Mathematics)",
+        "Ciências Humanas (Social Sciences)",
+        "Ciências da Natureza (Natural Sciences)",
+        "Redação (Essay)",
+    ],
+    "UNICAMP": [
+        "Portuguese",
+        "Mathematics",
+        "Physics",
+        "Chemistry",
+        "Biology",
+        "History",
+        "Geography",
+        "English",
+        "Redação (Essay)",
+        "Interdisciplinary",
+    ],
+    "ITA/IME": [
+        "Mathematics",
+        "Physics",
+        "Chemistry",
+        "Portuguese",
+        "English",
+        "Redação (Essay)",
+    ],
+    "SAT": [
+        "Evidence-Based Reading",
+        "Writing and Language",
+        "Math (No Calculator)",
+        "Math (Calculator)",
+    ],
+    "General": [
+        "Mathematics",
+        "Physics",
+        "Chemistry",
+        "Biology",
+        "Portuguese",
+        "English",
+        "History",
+        "Geography",
+        "Literature",
+        "Other",
+    ],
+}
+
+
+# Performance Benchmarks
+# Target pace (minutes per question) for each exam type
+
+EXAM_PACE_BENCHMARKS: Dict[str, float] = {
+    "FUVEST": 3.0,  # ~3 minutes per question (Phase 1)
+    "ENEM": 3.0,  # ~180 minutes / 45 questions = 4 min, but 3 is ideal
+    "UNICAMP": 3.5,  # Longer, more complex questions
+    "ITA/IME": 4.0,  # Extremely difficult, longer solutions
+    "SAT": 1.25,  # ~75 seconds per question (varies by section)
+    "General": 2.5,  # Conservative general benchmark
+}
+
+
+# Accuracy Targets (percentage thresholds)
+class AccuracyZone:
+    """Performance zones based on accuracy percentage."""
+
+    MASTERY_THRESHOLD: float = 80.0  # 80%+ = Mastery
+    DEVELOPING_THRESHOLD: float = 60.0  # 60-79% = Developing
+    # Below 60% = Struggling
+
+
+# Pace Zones (for speed analysis)
+class PaceZone:
+    """Performance zones based on pace relative to benchmark."""
+
+    RUSHING_MULTIPLIER: float = 0.5  # < 50% of benchmark = Rushing
+    OPTIMAL_MAX_MULTIPLIER: float = 1.2  # 50%-120% = Optimal
+    # > 120% = Too Slow
+
+    @staticmethod
+    def classify(pace: float, benchmark: float) -> str:
+        """Classify pace relative to exam benchmark."""
+        if pace < benchmark * PaceZone.RUSHING_MULTIPLIER:
+            return "Rushing"
+        elif pace <= benchmark * PaceZone.OPTIMAL_MAX_MULTIPLIER:
+            return "Optimal"
+        else:
+            return "Too Slow"
+
+
+def get_subjects_for_exam(exam_type: str) -> List[str]:
+    """
+    Get the appropriate subject list for a given exam type.
+
+    Args:
+        exam_type: The exam type identifier
+
+    Returns:
+        List of subjects for that exam
+    """
+    return EXAM_SUBJECTS.get(exam_type, EXAM_SUBJECTS["General"])
+
+
+def get_pace_benchmark(exam_type: str) -> float:
+    """
+    Get the target pace (minutes per question) for an exam type.
+
+    Args:
+        exam_type: The exam type identifier
+
+    Returns:
+        Target minutes per question
+    """
+    return EXAM_PACE_BENCHMARKS.get(exam_type, EXAM_PACE_BENCHMARKS["General"])
+
+
+# =============================================================================
+# ERROR TYPES
+# =============================================================================
 
 
 class ErrorType(Enum):

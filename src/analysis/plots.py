@@ -1,16 +1,17 @@
 """
-Chart generation functions for error analysis visualization.
+Chart generation functions for exam telemetry visualization.
 
 Uses Altair for creating interactive charts with consistent theming.
+Includes advanced visualizations for speed/accuracy analysis and performance tracking.
 """
 
 from datetime import datetime
-from typing import Dict, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 import altair as alt
 import pandas as pd
 
-from config import ChartConfig, Colors
+from config import ChartConfig, Colors, get_pace_benchmark
 
 
 def _configure_chart_style(chart: alt.Chart) -> alt.Chart:
@@ -213,4 +214,306 @@ def chart_difficulties(
         )
         .properties(height=180)
     )
+    return _configure_chart_style(chart)
+
+
+# =============================================================================
+# EXAM TELEMETRY VISUALIZATIONS
+# =============================================================================
+
+
+def chart_speed_vs_accuracy(scatter_data: List[Dict[str, Any]]) -> Optional[alt.Chart]:
+    """
+    Create a scatter plot showing the relationship between pace and accuracy.
+
+    This chart helps identify performance zones:
+    - Mastery Zone: Optimal pace with high accuracy
+    - Rushing Zone: Fast but low accuracy
+    - Slow Zone: Accurate but too slow
+
+    Args:
+        scatter_data: List of dicts with pace, accuracy, subject, exam_type
+
+    Returns:
+        Interactive Altair scatter chart or None if no data
+    """
+    if not scatter_data:
+        return None
+
+    df = pd.DataFrame(scatter_data)
+
+    # Compute exam-specific benchmark for each row
+    df["benchmark"] = df["exam_type"].apply(get_pace_benchmark)
+
+    # Create performance zone classification using dynamic benchmarks
+    def classify_zone(row: pd.Series) -> str:
+        bm = row["benchmark"]
+        if row["accuracy"] >= 80 and row["pace"] <= bm * 1.2:
+            return "Mastery Zone"
+        if row["pace"] < bm * 0.5:
+            return "Rushing"
+        if row["pace"] > bm * 1.2:
+            return "Slow"
+        return "Developing"
+
+    df["zone"] = df.apply(classify_zone, axis=1)
+
+    # Use the median benchmark for the reference line
+    median_benchmark = float(df["benchmark"].median())
+
+    # Color coding for zones
+    zone_colors = alt.Scale(
+        domain=["Mastery Zone", "Developing", "Rushing", "Slow"],
+        range=["#10b981", "#3b82f6", "#f59e0b", "#6b7280"],
+    )
+
+    # Selection for interaction
+    brush = alt.selection_point(encodings=["color"], on="click")
+
+    chart = (
+        alt.Chart(df)
+        .mark_circle(size=100, opacity=0.7)
+        .encode(
+            x=alt.X(
+                "pace:Q",
+                title="Minutes Per Question (MPQ)",
+                scale=alt.Scale(zero=False),
+            ),
+            y=alt.Y("accuracy:Q", title="Accuracy %", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color(
+                "zone:N", scale=zone_colors, legend=alt.Legend(title="Performance Zone")
+            ),
+            opacity=alt.condition(brush, alt.value(1), alt.value(0.3)),
+            tooltip=[
+                alt.Tooltip("subject:N", title="Subject"),
+                alt.Tooltip("exam_type:N", title="Exam"),
+                alt.Tooltip("pace:Q", title="Pace (min/q)", format=".2f"),
+                alt.Tooltip("accuracy:Q", title="Accuracy", format=".1f"),
+                alt.Tooltip("total_questions:Q", title="Questions"),
+                alt.Tooltip("date:N", title="Date"),
+            ],
+        )
+        .add_params(brush)
+        .properties(height=400, title="Speed vs Accuracy Analysis")
+    )
+
+    # Add reference lines for ideal zones
+    benchmark_line = (
+        alt.Chart(pd.DataFrame({"pace": [median_benchmark]}))
+        .mark_rule(color="#ef4444", strokeDash=[5, 5], opacity=0.5)
+        .encode(x="pace:Q")
+    )
+
+    accuracy_line = (
+        alt.Chart(pd.DataFrame({"accuracy": [80.0]}))
+        .mark_rule(color="#10b981", strokeDash=[5, 5], opacity=0.5)
+        .encode(y="accuracy:Q")
+    )
+
+    final_chart = chart + benchmark_line + accuracy_line
+    return _configure_chart_style(final_chart)
+
+
+def chart_mock_exam_trajectory(
+    trajectory_data: List[Dict[str, Any]],
+) -> Optional[alt.Chart]:
+    """
+    Create a line chart showing mock exam score evolution over time.
+
+    Args:
+        trajectory_data: List of dicts with exam_type, date, percentage, attempt_number
+
+    Returns:
+        Line chart with trend indicators or None if no data
+    """
+    if not trajectory_data:
+        return None
+
+    df = pd.DataFrame(trajectory_data)
+
+    # Sort by date for proper line plotting
+    df["date_parsed"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
+    df = df.sort_values("date_parsed")
+
+    # Color by exam type
+    exam_colors = alt.Scale(
+        domain=["FUVEST", "ENEM", "UNICAMP", "ITA/IME", "SAT", "General"],
+        range=["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#6b7280"],
+    )
+
+    # Line chart
+    line = (
+        alt.Chart(df)
+        .mark_line(point=alt.OverlayMarkDef(size=100, filled=True), strokeWidth=3)
+        .encode(
+            x=alt.X("date_parsed:T", title="Date"),
+            y=alt.Y("percentage:Q", title="Score %", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color(
+                "exam_type:N", scale=exam_colors, legend=alt.Legend(title="Exam Type")
+            ),
+            tooltip=[
+                alt.Tooltip("exam_name:N", title="Exam"),
+                alt.Tooltip("exam_type:N", title="Type"),
+                alt.Tooltip("date:N", title="Date"),
+                alt.Tooltip("percentage:Q", title="Score %", format=".1f"),
+                alt.Tooltip("score:Q", title="Raw Score", format=".1f"),
+                alt.Tooltip("attempt_number:Q", title="Attempt #"),
+            ],
+        )
+        .properties(height=350, title="Mock Exam Score Trajectory")
+    )
+
+    # Add target line at 80%
+    target_line = (
+        alt.Chart(pd.DataFrame({"target": [80.0]}))
+        .mark_rule(color="#10b981", strokeDash=[8, 4], opacity=0.6, size=2)
+        .encode(y="target:Q")
+    )
+
+    final_chart = line + target_line
+    return _configure_chart_style(final_chart)
+
+
+def chart_activity_heatmap(heatmap_data: List[Dict[str, Any]]) -> Optional[alt.Chart]:
+    """
+    Create a GitHub-style contribution heatmap showing study volume over time.
+
+    Args:
+        heatmap_data: List of dicts with date_key, intensity, questions_answered
+
+    Returns:
+        Heatmap visualization or None if no data
+    """
+    if not heatmap_data:
+        return None
+
+    df = pd.DataFrame(heatmap_data)
+
+    # Parse dates for week/day extraction
+    df["date_parsed"] = pd.to_datetime(df["date_key"], format="%Y-%m-%d")
+    # Use continuous week offset from earliest date to handle year boundaries
+    min_date = df["date_parsed"].min()
+    df["week"] = ((df["date_parsed"] - min_date).dt.days // 7)
+    df["day_of_week"] = df["date_parsed"].dt.dayofweek  # 0=Monday, 6=Sunday
+    df["month_label"] = df["date_parsed"].dt.strftime("%b %Y")
+
+    # Intensity color scale (GitHub-inspired)
+    intensity_colors = alt.Scale(
+        domain=[0, 1, 2, 3, 4],
+        range=["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
+    )
+
+    chart = (
+        alt.Chart(df)
+        .mark_rect(stroke="white", strokeWidth=2)
+        .encode(
+            x=alt.X("week:O", title="", axis=alt.Axis(labels=False, ticks=False)),
+            y=alt.Y(
+                "day_of_week:O",
+                title="Day",
+                axis=alt.Axis(
+                    labelExpr="['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][datum.value]"
+                ),
+            ),
+            color=alt.Color(
+                "intensity:O",
+                scale=intensity_colors,
+                legend=alt.Legend(
+                    title="Activity Level",
+                    labelExpr="['None', 'Low', 'Medium', 'High', 'Very High'][datum.value]",
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("date:N", title="Date"),
+                alt.Tooltip("questions_answered:Q", title="Questions Answered"),
+                alt.Tooltip("errors_logged:Q", title="Errors Logged"),
+                alt.Tooltip("study_time:Q", title="Study Time (min)", format=".0f"),
+            ],
+        )
+        .properties(height=200, title="Study Activity Heatmap (Last 6 Months)")
+    )
+
+    return _configure_chart_style(chart)
+
+
+def chart_session_summary(sessions: List[Dict[str, Any]]) -> Optional[alt.Chart]:
+    """
+    Create a multi-bar chart showing session counts by subject with accuracy overlay.
+
+    Args:
+        sessions: List of session records
+
+    Returns:
+        Grouped bar chart or None if no data
+    """
+    if not sessions:
+        return None
+
+    # Aggregate by subject
+    subject_stats: Dict[str, Dict[str, float]] = {}
+
+    for s in sessions:
+        subj = s.get("subject", "Unknown")
+        if subj not in subject_stats:
+            subject_stats[subj] = {"total_questions": 0, "correct": 0, "sessions": 0}
+
+        subject_stats[subj]["total_questions"] += s.get("total_questions", 0)
+        subject_stats[subj]["correct"] += s.get("correct_count", 0)
+        subject_stats[subj]["sessions"] += 1
+
+    # Calculate accuracy
+    data = []
+    for subj, stats in subject_stats.items():
+        accuracy = (
+            (stats["correct"] / stats["total_questions"] * 100)
+            if stats["total_questions"] > 0
+            else 0
+        )
+        data.append(
+            {
+                "subject": subj,
+                "sessions": stats["sessions"],
+                "accuracy": round(accuracy, 1),
+                "questions": stats["total_questions"],
+            }
+        )
+
+    df = pd.DataFrame(data).sort_values("sessions", ascending=False)
+
+    # Bar chart for session count
+    bars = (
+        alt.Chart(df)
+        .mark_bar(color=Colors.PRIMARY, opacity=0.7)
+        .encode(
+            x=alt.X("subject:N", title="Subject", sort="-y"),
+            y=alt.Y("sessions:Q", title="Number of Sessions"),
+            tooltip=[
+                alt.Tooltip("subject:N", title="Subject"),
+                alt.Tooltip("sessions:Q", title="Sessions"),
+                alt.Tooltip("questions:Q", title="Total Questions"),
+                alt.Tooltip("accuracy:Q", title="Accuracy %", format=".1f"),
+            ],
+        )
+    )
+
+    # Line overlay for accuracy
+    line = (
+        alt.Chart(df)
+        .mark_line(
+            point=alt.OverlayMarkDef(filled=True, size=80),
+            color="#ef4444",
+            strokeWidth=2,
+        )
+        .encode(
+            x=alt.X("subject:N", sort="-y"),
+            y=alt.Y("accuracy:Q", title="Accuracy %", scale=alt.Scale(domain=[0, 100])),
+        )
+    )
+
+    chart = (
+        alt.layer(bars, line)
+        .resolve_scale(y="independent")
+        .properties(height=300, title="Session Volume & Accuracy by Subject")
+    )
+
     return _configure_chart_style(chart)

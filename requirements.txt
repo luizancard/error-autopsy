@@ -6,3 +6,4 @@ altair
 pandas
 supabase
 streamlit-cookies-controller
+openpyxl
