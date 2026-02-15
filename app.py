@@ -70,25 +70,38 @@ styles.local_css()
 # Cookie controller for persistent login (24h)
 cookie_controller = CookieController()
 
+# Wait for cookies to load from browser before deciding auth state.
+# On first render the JS component hasn't communicated yet, so getAll() is empty.
+all_cookies = cookie_controller.getAll()
+_cookies_ready = all_cookies is not None and len(all_cookies) > 0
+
 # Try to restore session from browser cookies on page reload
-# Only run cookie check once per session to avoid repeated delays
-if not st.session_state["user"] and not st.session_state.get("_cookie_check_done"):
-    # Try to get tokens directly without waiting for getAll()
-    access_token = cookie_controller.get("sb_access_token")
-    refresh_token = cookie_controller.get("sb_refresh_token")
-
-    if access_token and refresh_token:
-        # We have tokens - restore session
-        user = auth_service.restore_session(access_token, refresh_token)
-        if user:
-            st.session_state["user"] = user
+if not st.session_state["user"]:
+    if _cookies_ready:
+        access_token = cookie_controller.get("sb_access_token")
+        refresh_token = cookie_controller.get("sb_refresh_token")
+        if access_token and refresh_token:
+            user = auth_service.restore_session(access_token, refresh_token)
+            if user:
+                st.session_state["user"] = user
+            else:
+                # Tokens expired or invalid — clean up
+                cookie_controller.remove("sb_access_token")
+                cookie_controller.remove("sb_refresh_token")
         else:
-            # Tokens expired or invalid — clean up
-            cookie_controller.remove("sb_access_token")
-            cookie_controller.remove("sb_refresh_token")
-
-    # Mark that we've checked cookies, even if tokens weren't found
-    st.session_state["_cookie_check_done"] = True
+            # Cookies loaded but no tokens → truly not logged in
+            st.session_state["_no_tokens"] = True
+    elif not st.session_state.get("_no_tokens"):
+        # Cookies haven't arrived yet — show loading instead of login flash
+        st.markdown(
+            """
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;">
+                <p style="color:#94a3b8;font-size:1.1rem;">Loading session...</p>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.stop()
 
 # Save tokens to cookies right after a fresh login
 if st.session_state.get("_save_tokens"):
@@ -103,8 +116,6 @@ if st.session_state.get("_save_tokens"):
         max_age=86400,
     )
     del st.session_state["_save_tokens"]
-    # Reset cookie check flag so we can verify new tokens on next reload
-    st.session_state["_cookie_check_done"] = False
 
 # Check authentication
 if not st.session_state["user"]:
@@ -557,7 +568,7 @@ with st.sidebar:
         st.session_state["user"] = None
         st.session_state.pop("access_token", None)
         st.session_state.pop("refresh_token", None)
-        st.session_state.pop("_cookie_check_done", None)
+        st.session_state.pop("_no_tokens", None)
         cookie_controller.remove("sb_access_token")
         cookie_controller.remove("sb_refresh_token")
         st.rerun()
