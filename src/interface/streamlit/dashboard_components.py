@@ -118,6 +118,40 @@ def render_telemetry_dashboard(
         else:
             st.info("No difficulty data yet.")
 
+    st.markdown("---")
+
+    # --- Error Types Pie Chart + Daily Questions Trend ---
+    col_errors, col_questions = st.columns(2)
+
+    with col_errors:
+        st.markdown(
+            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+            "font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;\">Error Types Distribution</h3>"
+            "<p style=\"font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;\">"
+            "Common mistakes by category</p>",
+            unsafe_allow_html=True,
+        )
+        error_type_data = mt.count_error_types(filtered_errors)
+        chart = pt.chart_error_types_pie(error_type_data)
+        if chart:
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info("No error type data yet.")
+
+    with col_questions:
+        st.markdown(
+            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+            "font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;\">Daily Study Trend</h3>"
+            "<p style=\"font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;\">"
+            "Questions answered per day</p>",
+            unsafe_allow_html=True,
+        )
+        chart = pt.chart_daily_questions(filtered_sessions)
+        if chart:
+            st.altair_chart(chart, use_container_width=True)
+        else:
+            st.info("No study session data yet.")
+
 
 # =========================================================================
 # PRIVATE HELPERS

@@ -742,14 +742,16 @@ def extract_section_scores(
             max_val = sec_data.get("max", 1)
             pct = (score / max_val * 100) if max_val > 0 else 0
 
-            results.append({
-                "section": sec_data.get("label", key),
-                "score": score,
-                "max": max_val,
-                "percentage": round(pct, 1),
-                "exam_name": exam_name,
-                "date": date_str,
-            })
+            results.append(
+                {
+                    "section": sec_data.get("label", key),
+                    "score": score,
+                    "max": max_val,
+                    "percentage": round(pct, 1),
+                    "exam_name": exam_name,
+                    "date": date_str,
+                }
+            )
 
     return results
 

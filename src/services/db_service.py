@@ -265,12 +265,18 @@ def load_study_sessions(user_id: str) -> List[Dict[str, Any]]:
             correct = clean_item.get("correct_count", 0) or 0
             duration = clean_item.get("duration_minutes", 0) or 0
 
-            if "accuracy_percentage" not in clean_item or clean_item["accuracy_percentage"] is None:
+            if (
+                "accuracy_percentage" not in clean_item
+                or clean_item["accuracy_percentage"] is None
+            ):
                 clean_item["accuracy_percentage"] = (
                     (correct / total_q * 100) if total_q > 0 else 0
                 )
 
-            if "pace_per_question" not in clean_item or clean_item["pace_per_question"] is None:
+            if (
+                "pace_per_question" not in clean_item
+                or clean_item["pace_per_question"] is None
+            ):
                 clean_item["pace_per_question"] = (
                     (duration / total_q) if total_q > 0 else 0
                 )
@@ -468,9 +474,14 @@ def load_mock_exams(user_id: str) -> List[Dict[str, Any]]:
             total_score = clean_item.get("total_score", 0) or 0
             max_score = clean_item.get("max_possible_score", 1) or 1
 
-            if "score_percentage" not in clean_item or clean_item["score_percentage"] is None:
+            if (
+                "score_percentage" not in clean_item
+                or clean_item["score_percentage"] is None
+            ):
                 clean_item["score_percentage"] = (
-                    (float(total_score) / float(max_score) * 100) if max_score > 0 else 0
+                    (float(total_score) / float(max_score) * 100)
+                    if max_score > 0
+                    else 0
                 )
 
             # Convert Decimal to float

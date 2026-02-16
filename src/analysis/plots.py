@@ -29,6 +29,19 @@ def _configure_chart_style(chart: alt.Chart) -> alt.Chart:
     )
 
 
+def _get_color_for_category(index: int) -> str:
+    """
+    Get a color from the palette for a category.
+    
+    Args:
+        index: Category index
+        
+    Returns:
+        Color hex string from the palette
+    """
+    return Colors.CHART_PALETTE[index % len(Colors.CHART_PALETTE)]
+
+
 def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
     """
     Create a bar chart showing error distribution by subject.
@@ -47,16 +60,21 @@ def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart
         columns=["Subject", "Errors"],
     ).sort_values("Errors", ascending=False)
 
+    # Add color index for each subject
+    df["color_index"] = range(len(df))
+    df["color"] = df["color_index"].apply(_get_color_for_category)
+
     select_subject = alt.selection_point(
         name="selected_subjects", fields=["Subject"], on="click"
     )
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=Colors.PRIMARY)
+        .mark_bar()
         .encode(
             x=alt.X("Subject:N", title=None),
             y=alt.Y("Errors:Q", title=None),
+            color=alt.Color("Subject:N", scale=alt.Scale(scheme="tableau20"), legend=None),
             opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
         )
         .add_params(select_subject)
@@ -114,13 +132,17 @@ def chart_timeline(month_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
         key=lambda x: datetime.strptime(x[0], "%b %Y"),
     )
     df = pd.DataFrame(sorted_months, columns=["Month", "Errors"])
+    
+    # Add color index for each month
+    df["colors"] = range(len(df))
 
     chart = (
         alt.Chart(df)
-        .mark_bar(color=Colors.PRIMARY)
+        .mark_bar()
         .encode(
             x=alt.X("Month:N", title=None, sort=None),
             y=alt.Y("Errors:Q", title=None),
+            color=alt.Color("Month:N", scale=alt.Scale(scheme="category10"), legend=None),
         )
         .properties(height=ChartConfig.HEIGHT_DEFAULT)
     )
@@ -189,10 +211,10 @@ def chart_difficulties(
         columns=["Difficulty", "Count"],
     )
 
-    # Color mapping for difficulty levels
+    # Use chart palette colors for consistency
     color_scale = alt.Scale(
         domain=["Easy", "Medium", "Hard"],
-        range=["#10b981", "#f59e0b", "#ef4444"],  # Green, Amber, Red
+        range=Colors.CHART_PALETTE[:3],  # Use first 3 colors from palette
     )
 
     chart = (
@@ -604,6 +626,53 @@ def chart_section_trends(
             ],
         )
         .properties(height=320, title="Section Progress Over Time")
+    )
+
+    return _configure_chart_style(chart)
+
+
+def chart_daily_questions(sessions: List[Dict[str, Any]]) -> Optional[alt.Chart]:
+    """
+    Create a bar chart showing total questions answered per day.
+
+    Args:
+        sessions: List of study session records
+
+    Returns:
+        Altair chart or None if no data
+    """
+    if not sessions:
+        return None
+
+    # Aggregate questions by date
+    daily_stats: Dict[str, int] = {}
+    for session in sessions:
+        date_str = session.get("date", "")
+        if date_str:
+            questions = session.get("total_questions", 0)
+            daily_stats[date_str] = daily_stats.get(date_str, 0) + questions
+
+    if not daily_stats:
+        return None
+
+    df = pd.DataFrame(
+        sorted(daily_stats.items(), key=lambda x: datetime.strptime(x[0], "%d-%m-%Y")),
+        columns=["Date", "Questions"],
+    )
+
+    # Convert to datetime for proper sorting
+    df["date_parsed"] = pd.to_datetime(df["Date"], format="%d-%m-%Y")
+    df = df.sort_values("date_parsed")
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar(color=Colors.PRIMARY_LIGHT)
+        .encode(
+            x=alt.X("date_parsed:T", title=None),
+            y=alt.Y("Questions:Q", title="Questions Answered"),
+            tooltip=["Date:N", "Questions:Q"],
+        )
+        .properties(height=200)
     )
 
     return _configure_chart_style(chart)

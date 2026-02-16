@@ -177,8 +177,10 @@ def render_session_logger(user_id: str) -> None:
     # Show success message after form submission
     if st.session_state.get("session_form_submitted", False):
         errors_count = st.session_state.get("last_session_errors", 0)
-        st.success(f"✅ Study session logged successfully! You answered {errors_count} questions incorrectly.")
-        
+        st.success(
+            f"✅ Study session logged successfully! You answered {errors_count} questions incorrectly."
+        )
+
         col1, col2 = st.columns([3, 1])
         with col2:
             if st.button("Clear Form", use_container_width=True, key="session_clear"):
@@ -297,214 +299,240 @@ def render_simulado_logger(user_id: str) -> None:
     st.subheader("Log a Mock Exam (Simulado)")
     st.markdown("Record the results of a full practice exam.")
 
-    with st.form("simulado_form"):
-        # Exam identification
+    # Initialize session state for mock exam form
+    if "mock_exam_form" not in st.session_state:
+        st.session_state.mock_exam_form = {
+            "exam_type": "General",
+            "exam_date": date.today(),
+            "exam_name": "",
+            "section_values": {},
+            "tri_score": 0.0,
+            "scaled_score": 0,
+            "total_score": 0.0,
+            "max_possible_score": 100.0,
+            "notes": "",
+        }
+
+    form_state = st.session_state.mock_exam_form
+
+    # Exam identification (not in form, so it doesn't trigger submission)
+    col1, col2 = st.columns(2)
+
+    with col1:
+        form_state["exam_type"] = st.selectbox(
+            "Exam Type", 
+            options=EXAM_TYPES, 
+            index=EXAM_TYPES.index(form_state["exam_type"]),
+            help="Which exam did you simulate?"
+        )
+
+    with col2:
+        form_state["exam_date"] = st.date_input(
+            "Date Taken", 
+            value=form_state["exam_date"], 
+            max_value=date.today()
+        )
+
+    form_state["exam_name"] = st.text_input(
+        "Exam Name *",
+        value=form_state["exam_name"],
+        placeholder="e.g., FUVEST 2024 Phase 1, ENEM Simulado 3",
+        help="Give this exam a descriptive name",
+    )
+
+    st.divider()
+
+    # Check if this exam has structured sections
+    sections = get_sections_for_exam(form_state["exam_type"])
+
+    if sections:
+        # Exam-specific section inputs
+        st.markdown("### Section Scores")
+
+        for key, sec in sections.items():
+            if key not in form_state["section_values"]:
+                form_state["section_values"][key] = sec["min"]
+
+            if sec["is_essay"]:
+                form_state["section_values"][key] = st.number_input(
+                    f"{sec['label']} ({sec['min']}-{sec['max']})",
+                    min_value=sec["min"],
+                    max_value=sec["max"],
+                    value=form_state["section_values"][key],
+                    step=10,
+                    key=f"sec_{key}",
+                )
+            else:
+                form_state["section_values"][key] = st.number_input(
+                    f"{sec['label']} (0-{sec['max']} correct)",
+                    min_value=sec["min"],
+                    max_value=sec["max"],
+                    value=form_state["section_values"][key],
+                    step=1,
+                    key=f"sec_{key}",
+                )
+
+        # Optional extra score fields
+        if form_state["exam_type"] == "ENEM":
+            st.divider()
+            form_state["tri_score"] = st.number_input(
+                "TRI Score (optional)",
+                min_value=0.0,
+                max_value=1000.0,
+                value=form_state["tri_score"],
+                step=1.0,
+                help="Final TRI calculated score, if available",
+            )
+
+        elif form_state["exam_type"] == "SAT":
+            st.divider()
+            form_state["scaled_score"] = st.number_input(
+                "Scaled Score (optional, 400-1600)",
+                min_value=0,
+                max_value=1600,
+                value=form_state["scaled_score"],
+                step=10,
+                help="Official scaled score, if available",
+            )
+
+        # Calculate totals from section values
+        form_state["total_score"] = float(sum(form_state["section_values"].values()))
+        form_state["max_possible_score"] = float(
+            sum(sec["max"] for sec in sections.values())
+        )
+
+    else:
+        # Generic scoring for other exam types
+        st.markdown("### Scoring")
         col1, col2 = st.columns(2)
 
         with col1:
-            exam_type = st.selectbox(
-                "Exam Type", options=EXAM_TYPES, help="Which exam did you simulate?"
+            form_state["total_score"] = st.number_input(
+                "Your Score",
+                min_value=0.0,
+                max_value=10000.0,
+                value=form_state["total_score"],
+                step=1.0,
+                help="Points you scored",
             )
 
         with col2:
-            exam_date = st.date_input(
-                "Date Taken", value=date.today(), max_value=date.today()
+            form_state["max_possible_score"] = st.number_input(
+                "Maximum Possible Score",
+                min_value=1.0,
+                max_value=10000.0,
+                value=form_state["max_possible_score"],
+                step=1.0,
+                help="Total points available",
             )
 
-        exam_name = st.text_input(
-            "Exam Name *",
-            placeholder="e.g., FUVEST 2024 Phase 1, ENEM Simulado 3",
-            help="Give this exam a descriptive name",
+    # Score preview (updates in real-time)
+    if form_state["max_possible_score"] > 0:
+        percentage = (form_state["total_score"] / form_state["max_possible_score"]) * 100
+        st.metric(
+            "Score Percentage",
+            f"{percentage:.1f}%",
+            delta="Pass" if percentage >= 70 else "Needs Improvement",
+            delta_color="normal" if percentage >= 70 else "inverse",
         )
 
-        st.divider()
-
-        # Check if this exam has structured sections
-        sections = get_sections_for_exam(exam_type)
-
-        breakdown_json = {}
-        total_score = 0.0
-        max_possible_score = 100.0
-
-        if sections:
-            # Exam-specific section inputs
-            st.markdown("### Section Scores")
-
-            section_values = {}
-            for key, sec in sections.items():
-                if sec["is_essay"]:
-                    val = st.number_input(
-                        f"{sec['label']} ({sec['min']}-{sec['max']})",
-                        min_value=sec["min"],
-                        max_value=sec["max"],
-                        value=sec["min"],
-                        step=10,
-                        key=f"sec_{key}",
-                    )
-                else:
-                    val = st.number_input(
-                        f"{sec['label']} (0-{sec['max']} correct)",
-                        min_value=sec["min"],
-                        max_value=sec["max"],
-                        value=0,
-                        step=1,
-                        key=f"sec_{key}",
-                    )
-                section_values[key] = val
-
-            # Optional extra score fields
-            if exam_type == "ENEM":
-                st.divider()
-                tri_score = st.number_input(
-                    "TRI Score (optional)",
-                    min_value=0.0,
-                    max_value=1000.0,
-                    value=0.0,
-                    step=1.0,
-                    help="Final TRI calculated score, if available",
-                )
-                # Build breakdown
-                for key, sec in sections.items():
-                    breakdown_json[key] = {
-                        "label": sec["label"],
-                        "score": section_values[key],
-                        "max": sec["max"],
-                        "subject": sec["subject"],
-                    }
-                if tri_score > 0:
-                    breakdown_json["tri_score"] = tri_score
-                # total = sum of objective correct + redacao
-                total_score = float(sum(section_values.values()))
-                max_possible_score = float(
-                    sum(sec["max"] for sec in sections.values())
-                )
-
-            elif exam_type == "SAT":
-                st.divider()
-                scaled_score = st.number_input(
-                    "Scaled Score (optional, 400-1600)",
-                    min_value=0,
-                    max_value=1600,
-                    value=0,
-                    step=10,
-                    help="Official scaled score, if available",
-                )
-                for key, sec in sections.items():
-                    breakdown_json[key] = {
-                        "label": sec["label"],
-                        "score": section_values[key],
-                        "max": sec["max"],
-                        "subject": sec["subject"],
-                    }
-                if scaled_score > 0:
-                    breakdown_json["scaled_score"] = scaled_score
-                total_score = float(sum(section_values.values()))
-                max_possible_score = float(
-                    sum(sec["max"] for sec in sections.values())
-                )
-
+        if percentage >= 80:
+            st.success("Excellent performance! Keep it up!")
+        elif percentage >= 60:
+            st.info("Good progress. Focus on weak areas to improve further.")
         else:
-            # Generic scoring for other exam types
-            st.markdown("### Scoring")
-            col1, col2 = st.columns(2)
-
-            with col1:
-                total_score = st.number_input(
-                    "Your Score",
-                    min_value=0.0,
-                    max_value=10000.0,
-                    value=0.0,
-                    step=1.0,
-                    help="Points you scored",
-                )
-
-            with col2:
-                max_possible_score = st.number_input(
-                    "Maximum Possible Score",
-                    min_value=1.0,
-                    max_value=10000.0,
-                    value=100.0,
-                    step=1.0,
-                    help="Total points available",
-                )
-
-        # Score preview
-        if max_possible_score > 0:
-            percentage = (total_score / max_possible_score) * 100
-            st.metric(
-                "Score Percentage",
-                f"{percentage:.1f}%",
-                delta="Pass" if percentage >= 70 else "Needs Improvement",
-                delta_color="normal" if percentage >= 70 else "inverse",
+            st.warning(
+                "There's room for improvement. Review fundamentals and practice more."
             )
 
-            if percentage >= 80:
-                st.success("Excellent performance! Keep it up!")
-            elif percentage >= 60:
-                st.info("Good progress. Focus on weak areas to improve further.")
-            else:
-                st.warning(
-                    "There's room for improvement. Review fundamentals and practice more."
-                )
+    # Optional notes
+    form_state["notes"] = st.text_area(
+        "Notes (optional)",
+        value=form_state["notes"],
+        placeholder="How did it feel? What sections were hardest?",
+        help="Add any observations about this exam",
+    )
 
-        # Optional notes
-        notes = st.text_area(
-            "Notes (optional)",
-            placeholder="How did it feel? What sections were hardest?",
-            help="Add any observations about this exam",
-        )
-
-        # Submit
-        submitted = st.form_submit_button(
-            "Log Mock Exam", use_container_width=True, type="primary"
-        )
-
-        if submitted:
-            if not exam_name.strip():
+    # Submit button (outside form)
+    col_button1, col_button2 = st.columns([3, 1])
+    
+    with col_button1:
+        if st.button("Log Mock Exam", use_container_width=True, type="primary"):
+            # Validation and submission
+            if not form_state["exam_name"].strip():
                 st.error("Please enter an exam name.")
-            elif total_score > max_possible_score:
+            elif form_state["total_score"] > form_state["max_possible_score"]:
                 st.error("Score cannot exceed maximum possible score.")
             else:
+                # Build breakdown_json
+                breakdown_json = {}
+                if sections:
+                    for key, sec in sections.items():
+                        breakdown_json[key] = {
+                            "label": sec["label"],
+                            "score": form_state["section_values"][key],
+                            "max": sec["max"],
+                            "subject": sec["subject"],
+                        }
+                    if form_state["exam_type"] == "ENEM" and form_state["tri_score"] > 0:
+                        breakdown_json["tri_score"] = form_state["tri_score"]
+                    elif form_state["exam_type"] == "SAT" and form_state["scaled_score"] > 0:
+                        breakdown_json["scaled_score"] = form_state["scaled_score"]
+
                 exam_id = db.create_mock_exam(
                     user_id=user_id,
-                    exam_name=exam_name.strip(),
-                    exam_type=exam_type,
-                    total_score=total_score,
-                    max_possible_score=max_possible_score,
-                    date_val=exam_date,
+                    exam_name=form_state["exam_name"].strip(),
+                    exam_type=form_state["exam_type"],
+                    total_score=form_state["total_score"],
+                    max_possible_score=form_state["max_possible_score"],
+                    date_val=form_state["exam_date"],
                     breakdown_json=breakdown_json if breakdown_json else None,
-                    notes=notes.strip() if notes else None,
+                    notes=form_state["notes"].strip() if form_state["notes"] else None,
                 )
 
                 if exam_id:
                     st.session_state["simulado_form_submitted"] = True
                     st.session_state["simulado_exam_id"] = exam_id
-                    
+
                     # Check if any section had errors for error logging prompt
                     has_errors = False
                     if sections:
                         for key, sec in sections.items():
-                            score = breakdown_json.get(key, {})
-                            if isinstance(score, dict):
-                                val = score.get("score", 0)
-                                mx = score.get("max", 0)
-                                if not sec["is_essay"] and val < mx:
-                                    has_errors = True
-                                    break
+                            val = form_state["section_values"].get(key, 0)
+                            mx = sec["max"]
+                            if not sec["is_essay"] and val < mx:
+                                has_errors = True
+                                break
 
                     if has_errors:
                         st.session_state["mock_exam_id"] = exam_id
-                        st.session_state["mock_exam_type"] = exam_type
+                        st.session_state["mock_exam_type"] = form_state["exam_type"]
                         st.session_state["mock_exam_breakdown"] = breakdown_json
-                        st.session_state["mock_exam_date"] = exam_date
+                        st.session_state["mock_exam_date"] = form_state["exam_date"]
                         st.session_state["show_mock_error_prompt"] = True
                 else:
                     st.error("Failed to log exam. Please try again.")
 
+    with col_button2:
+        if st.button("Clear", use_container_width=True):
+            st.session_state.mock_exam_form = {
+                "exam_type": "General",
+                "exam_date": date.today(),
+                "exam_name": "",
+                "section_values": {},
+                "tri_score": 0.0,
+                "scaled_score": 0,
+                "total_score": 0.0,
+                "max_possible_score": 100.0,
+                "notes": "",
+            }
+
     # Show success message after form submission
     if st.session_state.get("simulado_form_submitted", False):
-        st.success(f"✅ Mock exam logged successfully! You can now log errors from this exam.")
-        
+        st.success(
+            "✅ Mock exam logged successfully! You can now log errors from this exam."
+        )
+
         col1, col2 = st.columns([3, 1])
         with col2:
             if st.button("Clear Form", use_container_width=True):
@@ -540,7 +568,12 @@ def _render_mock_exam_error_prompt() -> None:
             wrong = mx - val
             if wrong > 0:
                 sections_with_errors.append(
-                    {"key": key, "label": sec["label"], "subject": sec["subject"], "wrong": wrong}
+                    {
+                        "key": key,
+                        "label": sec["label"],
+                        "subject": sec["subject"],
+                        "wrong": wrong,
+                    }
                 )
 
     if not sections_with_errors:
@@ -556,7 +589,9 @@ def _render_mock_exam_error_prompt() -> None:
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        if st.button("Yes, Log Errors", use_container_width=True, type="primary", key="mock_yes"):
+        if st.button(
+            "Yes, Log Errors", use_container_width=True, type="primary", key="mock_yes"
+        ):
             st.session_state["show_mock_error_form"] = True
             st.session_state["show_mock_error_prompt"] = False
 
@@ -676,9 +711,7 @@ def render_tabbed_logger(user_id: str) -> None:
         return
 
     # Main tabbed interface
-    tab1, tab2, tab3 = st.tabs(
-        ["Study Session", "Mock Exam", "Individual Error"]
-    )
+    tab1, tab2, tab3 = st.tabs(["Study Session", "Mock Exam", "Individual Error"])
 
     with tab1:
         render_session_logger(user_id)
