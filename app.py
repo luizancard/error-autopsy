@@ -247,7 +247,7 @@ def render_history() -> None:
     st.divider()
 
     # Tabbed view for Errors and Study Sessions
-    tab1, tab2 = st.tabs(["📝 Errors History", "📚 Study Sessions"])
+    tab1, tab2 = st.tabs(["Errors History", "Study Sessions"])
 
     with tab1:
         # Existing history functionality
@@ -263,18 +263,64 @@ def render_history() -> None:
 
         if filtered_data:
             edited_df = hist.render_editable_table(filtered_data)
-            if edited_df is not None and st.button(
-                "Save Changes",
-                use_container_width=True,
-                type="primary",
-                key="save_errors",
-            ):
-                updated_records = cast(
-                    List[Dict[str, Any]], edited_df.to_dict("records")
-                )
-                if db.update_errors(user_id, updated_records):
-                    st.success("Changes saved successfully!")
-                    st.rerun()
+            
+            col1, col2 = st.columns([3, 1])
+            
+            with col1:
+                if edited_df is not None and st.button(
+                    "Save Changes",
+                    use_container_width=True,
+                    type="primary",
+                    key="save_errors",
+                ):
+                    updated_records = cast(
+                        List[Dict[str, Any]], edited_df.to_dict("records")
+                    )
+                    if db.update_errors(user_id, updated_records):
+                        st.success("Changes saved successfully!")
+                        st.rerun()
+            
+            with col2:
+                # Delete selected errors
+                if st.button(
+                    "Delete Selected",
+                    use_container_width=True,
+                    type="secondary",
+                    key="delete_errors_btn",
+                ):
+                    st.session_state["show_delete_errors"] = True
+            
+            # Delete confirmation
+            if st.session_state.get("show_delete_errors", False):
+                with st.form("delete_errors_form"):
+                    st.warning("⚠️ Select errors to delete (this cannot be undone)")
+                    
+                    # Create checkboxes for each error
+                    selected_ids = []
+                    for idx, row in enumerate(filtered_data):
+                        if st.checkbox(
+                            f"{row.get('subject', '')} - {row.get('topic', '')} ({row.get('date', '')})",
+                            key=f"del_err_{idx}"
+                        ):
+                            selected_ids.append(row.get("id"))
+                    
+                    col_del1, col_del2 = st.columns(2)
+                    with col_del1:
+                        if st.form_submit_button("Confirm Delete", type="primary", use_container_width=True):
+                            if selected_ids:
+                                if db.delete_errors(user_id, selected_ids):
+                                    st.success(f"Deleted {len(selected_ids)} error(s)!")
+                                    st.session_state["show_delete_errors"] = False
+                                    st.rerun()
+                                else:
+                                    st.error("Failed to delete errors. Please try again.")
+                            else:
+                                st.warning("No errors selected.")
+                    
+                    with col_del2:
+                        if st.form_submit_button("Cancel", use_container_width=True):
+                            st.session_state["show_delete_errors"] = False
+                            st.rerun()
         else:
             st.info("No records match your filters.")
 

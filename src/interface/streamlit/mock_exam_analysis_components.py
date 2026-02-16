@@ -351,14 +351,87 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
 
 
 def _render_edit_form(exam: Dict[str, Any]) -> None:
-    """Render inline edit form for a mock exam."""
+    """Render comprehensive inline edit form for a mock exam."""
     exam_id = exam.get("id", "")
+    exam_type = exam.get("exam_type", "General")
+    breakdown = exam.get("breakdown_json") or {}
 
     st.markdown("**Edit Exam Details:**")
 
     with st.form(f"edit_form_{exam_id}"):
         new_name = st.text_input("Exam Name", value=exam.get("exam_name", ""))
         new_notes = st.text_area("Notes", value=exam.get("notes", ""))
+
+        # Get section definitions if exam has structured sections
+        from config import get_sections_for_exam
+        sections = get_sections_for_exam(exam_type)
+        
+        new_breakdown = {}
+        new_total_score = exam.get("total_score", 0)
+        new_max_score = exam.get("max_possible_score", 0)
+        
+        if sections and isinstance(breakdown, dict):
+            st.markdown("**Section Scores:**")
+            
+            # Allow editing each section score
+            for key, sec in sections.items():
+                if key in breakdown and isinstance(breakdown[key], dict):
+                    current_score = breakdown[key].get("score", 0)
+                    max_score = breakdown[key].get("max", sec["max"])
+                    
+                    if sec["is_essay"]:
+                        new_score = st.number_input(
+                            f"{sec['label']} ({sec['min']}-{max_score})",
+                            min_value=sec["min"],
+                            max_value=max_score,
+                            value=int(current_score),
+                            step=10,
+                            key=f"edit_sec_{key}_{exam_id}"
+                        )
+                    else:
+                        new_score = st.number_input(
+                            f"{sec['label']} (0-{max_score} correct)",
+                            min_value=0,
+                            max_value=max_score,
+                            value=int(current_score),
+                            step=1,
+                            key=f"edit_sec_{key}_{exam_id}"
+                        )
+                    
+                    new_breakdown[key] = {
+                        "label": sec["label"],
+                        "score": new_score,
+                        "max": max_score,
+                        "subject": sec["subject"],
+                    }
+            
+            # Recalculate totals
+            new_total_score = sum(s["score"] for s in new_breakdown.values())
+            new_max_score = sum(s["max"] for s in new_breakdown.values())
+            
+            # Show updated percentage
+            if new_max_score > 0:
+                new_pct = (new_total_score / new_max_score) * 100
+                st.metric("Updated Percentage", f"{new_pct:.1f}%")
+        else:
+            # For exams without sections, allow editing total score directly
+            col1, col2 = st.columns(2)
+            with col1:
+                new_total_score = st.number_input(
+                    "Total Score",
+                    min_value=0.0,
+                    value=float(exam.get("total_score", 0)),
+                    step=1.0,
+                    key=f"edit_total_{exam_id}"
+                )
+            with col2:
+                new_max_score = st.number_input(
+                    "Max Score",
+                    min_value=1.0,
+                    value=float(exam.get("max_possible_score", 100)),
+                    step=1.0,
+                    key=f"edit_max_{exam_id}"
+                )
 
         col_submit, col_cancel = st.columns(2)
 
@@ -373,7 +446,17 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
                 updates = {
                     "exam_name": new_name,
                     "notes": new_notes,
+                    "total_score": new_total_score,
+                    "max_possible_score": new_max_score,
                 }
+                
+                # Update breakdown if sections were edited
+                if new_breakdown:
+                    # Keep extra fields like tri_score, scaled_score
+                    for k, v in breakdown.items():
+                        if k not in new_breakdown and not isinstance(v, dict):
+                            new_breakdown[k] = v
+                    updates["breakdown_json"] = new_breakdown
 
                 if db.update_mock_exam(
                     exam_id=exam_id,

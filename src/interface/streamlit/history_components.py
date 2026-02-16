@@ -367,7 +367,7 @@ def render_editable_sessions_table(
     data: List[Dict[str, Any]],
 ) -> Optional[pd.DataFrame]:
     """
-    Render an editable data table for study sessions.
+    Render an editable data table for study sessions with calculated metrics.
 
     Args:
         data: List of study session records to display.
@@ -382,6 +382,10 @@ def render_editable_sessions_table(
     # Convert to DataFrame for editing
     df = pd.DataFrame(data)
 
+    # Calculate metrics
+    df["success_rate"] = (df["questions_correct"] / df["questions_total"] * 100).fillna(0).round(1)
+    df["avg_time_per_question"] = (df["time_spent_min"] / df["questions_total"]).fillna(0).round(2)
+
     # Reorder columns for better UX
     column_order = [
         "id",
@@ -391,7 +395,9 @@ def render_editable_sessions_table(
         "questions_total",
         "questions_correct",
         "questions_wrong",
+        "success_rate",
         "time_spent_min",
+        "avg_time_per_question",
         "date",
     ]
     # Only use columns that exist in the DataFrame
@@ -407,7 +413,9 @@ def render_editable_sessions_table(
         "questions_total": "Total Questions",
         "questions_correct": "Correct",
         "questions_wrong": "Wrong",
+        "success_rate": "Success Rate (%)",
         "time_spent_min": "Time (min)",
+        "avg_time_per_question": "Avg Time/Q (min)",
         "date": "Date",
     }
     df.columns = [display_names.get(col, col) for col in df.columns]
@@ -449,10 +457,22 @@ def render_editable_sessions_table(
             width="small",
             min_value=0,
         ),
+        "Success Rate (%)": st.column_config.NumberColumn(
+            "Success Rate (%)",
+            width="small",
+            format="%.1f%%",
+            disabled=True,
+        ),
         "Time (min)": st.column_config.NumberColumn(
             "Time (min)",
             width="small",
             min_value=0,
+        ),
+        "Avg Time/Q (min)": st.column_config.NumberColumn(
+            "Avg Time/Q (min)",
+            width="small",
+            format="%.2f",
+            disabled=True,
         ),
         "Date": st.column_config.TextColumn(
             "Date",

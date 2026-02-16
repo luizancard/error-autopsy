@@ -134,19 +134,21 @@ def update_errors(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
     try:
         clean_records = []
         for rec in updated_records:
-            if not rec.get("id"):
+            # Handle both original column names and display names
+            rec_id = rec.get("ID") or rec.get("id")
+            if not rec_id:
                 continue
 
             clean_records.append(
                 {
-                    "id": rec["id"],
+                    "id": rec_id,
                     "user_id": user_id,
-                    "subject": rec["subject"],
-                    "topic": rec["topic"],
-                    "type": rec["type"],
-                    "description": rec.get("description", ""),
-                    "date": _format_date_iso(rec["date"]),
-                    "difficulty": rec.get("difficulty", "Medium"),
+                    "subject": rec.get("Subject") or rec.get("subject", ""),
+                    "topic": rec.get("Topic") or rec.get("topic", ""),
+                    "type": rec.get("Error Type") or rec.get("type", ""),
+                    "description": rec.get("Description") or rec.get("description", ""),
+                    "date": _format_date_iso(rec.get("Date") or rec.get("date", date.today())),
+                    "difficulty": rec.get("Difficulty") or rec.get("difficulty", "Medium"),
                 }
             )
 
@@ -155,6 +157,31 @@ def update_errors(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
         return True
     except Exception as e:
         logger.error(f"Erro ao atualizar: {e}")
+        return False
+
+
+def delete_errors(user_id: str, error_ids: List[str]) -> bool:
+    """
+    Delete multiple error records.
+
+    Args:
+        user_id: User UUID
+        error_ids: List of error IDs to delete
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not supabase:
+        return False
+
+    try:
+        for error_id in error_ids:
+            supabase.table("errors").delete().eq("id", error_id).eq(
+                "user_id", user_id
+            ).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error deleting errors: {e}")
         return False
 
 
