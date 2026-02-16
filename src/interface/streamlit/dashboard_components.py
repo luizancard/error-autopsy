@@ -13,10 +13,10 @@ from typing import Any, Dict, List
 
 import streamlit as st
 from config import AVOIDABLE_ERROR_TYPES, Colors, TimeFilter
+from config.icons import ICON_BOOK
 from src.analysis import metrics as mt
 from src.analysis import plots as pt
 from src.interface.streamlit import components as ui
-from config.icons import ICON_BOOK
 
 
 def render_telemetry_dashboard(
@@ -91,8 +91,8 @@ def render_telemetry_dashboard(
     with col_timeline:
         st.markdown(
             "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            "font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;\">Errors Over Time</h3>"
-            "<p style=\"font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;\">"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Errors Over Time</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
             "Monthly error count</p>",
             unsafe_allow_html=True,
         )
@@ -106,8 +106,8 @@ def render_telemetry_dashboard(
     with col_difficulty:
         st.markdown(
             "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            "font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;\">Difficulty Analysis</h3>"
-            "<p style=\"font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;\">"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Difficulty Analysis</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
             "Errors by exercise difficulty</p>",
             unsafe_allow_html=True,
         )
@@ -126,8 +126,8 @@ def render_telemetry_dashboard(
     with col_errors:
         st.markdown(
             "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            "font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;\">Error Types Distribution</h3>"
-            "<p style=\"font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;\">"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Error Types Distribution</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
             "Common mistakes by category</p>",
             unsafe_allow_html=True,
         )
@@ -141,8 +141,8 @@ def render_telemetry_dashboard(
     with col_questions:
         st.markdown(
             "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            "font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;\">Daily Study Trend</h3>"
-            "<p style=\"font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;\">"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Daily Study Trend</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
             "Questions answered per day</p>",
             unsafe_allow_html=True,
         )
@@ -170,9 +170,7 @@ def _render_stat_cards(
     for r in filtered_errors:
         t = r.get("type", "Other") or "Other"
         type_counts[t] = type_counts.get(t, 0) + 1
-    avoidable_count = sum(
-        type_counts.get(et, 0) for et in AVOIDABLE_ERROR_TYPES
-    )
+    avoidable_count = sum(type_counts.get(et, 0) for et in AVOIDABLE_ERROR_TYPES)
     avoidable_pct = (avoidable_count / total * 100) if total > 0 else 0.0
 
     # Average accuracy from study sessions

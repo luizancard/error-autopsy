@@ -32,10 +32,10 @@ def _configure_chart_style(chart: alt.Chart) -> alt.Chart:
 def _get_color_for_category(index: int) -> str:
     """
     Get a color from the palette for a category.
-    
+
     Args:
         index: Category index
-        
+
     Returns:
         Color hex string from the palette
     """
@@ -74,7 +74,9 @@ def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart
         .encode(
             x=alt.X("Subject:N", title=None),
             y=alt.Y("Errors:Q", title=None),
-            color=alt.Color("Subject:N", scale=alt.Scale(scheme="tableau20"), legend=None),
+            color=alt.Color(
+                "Subject:N", scale=alt.Scale(scheme="tableau20"), legend=None
+            ),
             opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
         )
         .add_params(select_subject)
@@ -132,7 +134,7 @@ def chart_timeline(month_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
         key=lambda x: datetime.strptime(x[0], "%b %Y"),
     )
     df = pd.DataFrame(sorted_months, columns=["Month", "Errors"])
-    
+
     # Add color index for each month
     df["colors"] = range(len(df))
 
@@ -142,7 +144,9 @@ def chart_timeline(month_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
         .encode(
             x=alt.X("Month:N", title=None, sort=None),
             y=alt.Y("Errors:Q", title=None),
-            color=alt.Color("Month:N", scale=alt.Scale(scheme="category10"), legend=None),
+            color=alt.Color(
+                "Month:N", scale=alt.Scale(scheme="category10"), legend=None
+            ),
         )
         .properties(height=ChartConfig.HEIGHT_DEFAULT)
     )
@@ -415,7 +419,7 @@ def chart_activity_heatmap(heatmap_data: List[Dict[str, Any]]) -> Optional[alt.C
     df["date_parsed"] = pd.to_datetime(df["date_key"], format="%Y-%m-%d")
     # Use continuous week offset from earliest date to handle year boundaries
     min_date = df["date_parsed"].min()
-    df["week"] = ((df["date_parsed"] - min_date).dt.days // 7)
+    df["week"] = (df["date_parsed"] - min_date).dt.days // 7
     df["day_of_week"] = df["date_parsed"].dt.dayofweek  # 0=Monday, 6=Sunday
     df["month_label"] = df["date_parsed"].dt.strftime("%b %Y")
 

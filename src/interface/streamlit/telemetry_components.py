@@ -320,17 +320,15 @@ def render_simulado_logger(user_id: str) -> None:
 
     with col1:
         form_state["exam_type"] = st.selectbox(
-            "Exam Type", 
-            options=EXAM_TYPES, 
+            "Exam Type",
+            options=EXAM_TYPES,
             index=EXAM_TYPES.index(form_state["exam_type"]),
-            help="Which exam did you simulate?"
+            help="Which exam did you simulate?",
         )
 
     with col2:
         form_state["exam_date"] = st.date_input(
-            "Date Taken", 
-            value=form_state["exam_date"], 
-            max_value=date.today()
+            "Date Taken", value=form_state["exam_date"], max_value=date.today()
         )
 
     form_state["exam_name"] = st.text_input(
@@ -428,7 +426,9 @@ def render_simulado_logger(user_id: str) -> None:
 
     # Score preview (updates in real-time)
     if form_state["max_possible_score"] > 0:
-        percentage = (form_state["total_score"] / form_state["max_possible_score"]) * 100
+        percentage = (
+            form_state["total_score"] / form_state["max_possible_score"]
+        ) * 100
         st.metric(
             "Score Percentage",
             f"{percentage:.1f}%",
@@ -455,7 +455,7 @@ def render_simulado_logger(user_id: str) -> None:
 
     # Submit button (outside form)
     col_button1, col_button2 = st.columns([3, 1])
-    
+
     with col_button1:
         if st.button("Log Mock Exam", use_container_width=True, type="primary"):
             # Validation and submission
@@ -474,9 +474,15 @@ def render_simulado_logger(user_id: str) -> None:
                             "max": sec["max"],
                             "subject": sec["subject"],
                         }
-                    if form_state["exam_type"] == "ENEM" and form_state["tri_score"] > 0:
+                    if (
+                        form_state["exam_type"] == "ENEM"
+                        and form_state["tri_score"] > 0
+                    ):
                         breakdown_json["tri_score"] = form_state["tri_score"]
-                    elif form_state["exam_type"] == "SAT" and form_state["scaled_score"] > 0:
+                    elif (
+                        form_state["exam_type"] == "SAT"
+                        and form_state["scaled_score"] > 0
+                    ):
                         breakdown_json["scaled_score"] = form_state["scaled_score"]
 
                 exam_id = db.create_mock_exam(
