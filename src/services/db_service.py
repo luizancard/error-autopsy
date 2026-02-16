@@ -147,8 +147,11 @@ def update_errors(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
                     "topic": rec.get("Topic") or rec.get("topic", ""),
                     "type": rec.get("Error Type") or rec.get("type", ""),
                     "description": rec.get("Description") or rec.get("description", ""),
-                    "date": _format_date_iso(rec.get("Date") or rec.get("date", date.today())),
-                    "difficulty": rec.get("Difficulty") or rec.get("difficulty", "Medium"),
+                    "date": _format_date_iso(
+                        rec.get("Date") or rec.get("date", date.today())
+                    ),
+                    "difficulty": rec.get("Difficulty")
+                    or rec.get("difficulty", "Medium"),
                 }
             )
 

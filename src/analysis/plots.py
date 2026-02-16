@@ -70,7 +70,9 @@ def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart
         .encode(
             x=alt.X("Subject:N", title=None),
             y=alt.Y("Errors:Q", title=None),
-            color=alt.Color("Subject:N", scale=alt.Scale(scheme="purples"), legend=None),
+            color=alt.Color(
+                "Subject:N", scale=alt.Scale(scheme="purples"), legend=None
+            ),
             opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
         )
         .add_params(select_subject)

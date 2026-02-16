@@ -383,8 +383,12 @@ def render_editable_sessions_table(
     df = pd.DataFrame(data)
 
     # Calculate metrics
-    df["success_rate"] = (df["questions_correct"] / df["questions_total"] * 100).fillna(0).round(1)
-    df["avg_time_per_question"] = (df["time_spent_min"] / df["questions_total"]).fillna(0).round(2)
+    df["success_rate"] = (
+        (df["questions_correct"] / df["questions_total"] * 100).fillna(0).round(1)
+    )
+    df["avg_time_per_question"] = (
+        (df["time_spent_min"] / df["questions_total"]).fillna(0).round(2)
+    )
 
     # Reorder columns for better UX
     column_order = [
