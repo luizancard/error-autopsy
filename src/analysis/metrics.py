@@ -781,14 +781,19 @@ def get_section_trend_data(
 
 
 def get_mock_exam_error_summary(
-    errors: List[Dict[str, Any]], mock_exam_id: str
+    errors: List[Dict[str, Any]],
+    mock_exam_id: str,
+    exam_date: Optional[str] = None,
 ) -> Dict[str, List[Dict[str, Any]]]:
     """
     Group errors by subject for a specific mock exam.
 
+    Includes both explicitly linked errors and errors from the same date.
+
     Args:
         errors: List of all error records
         mock_exam_id: The mock exam ID to filter by
+        exam_date: Optional exam date (DD-MM-YYYY) for fallback matching
 
     Returns:
         Dictionary mapping subject -> list of error dicts
@@ -796,12 +801,21 @@ def get_mock_exam_error_summary(
     grouped: Dict[str, List[Dict[str, Any]]] = {}
 
     for error in errors:
-        if error.get("mock_exam_id") != mock_exam_id:
-            continue
-
-        subject = error.get("subject", "Unknown")
-        if subject not in grouped:
-            grouped[subject] = []
-        grouped[subject].append(error)
+        # Primary match: explicit mock_exam_id linkage
+        if error.get("mock_exam_id") == mock_exam_id:
+            subject = error.get("subject", "Unknown")
+            if subject not in grouped:
+                grouped[subject] = []
+            grouped[subject].append(error)
+        # Fallback match: same date if no mock_exam_id specified
+        elif (
+            not error.get("mock_exam_id")
+            and exam_date
+            and error.get("date") == exam_date
+        ):
+            subject = error.get("subject", "Unknown")
+            if subject not in grouped:
+                grouped[subject] = []
+            grouped[subject].append(error)
 
     return grouped

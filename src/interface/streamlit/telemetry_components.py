@@ -209,7 +209,6 @@ def _render_error_prompt_for_session() -> None:
         if st.button("Yes, Log Errors", use_container_width=True, type="primary"):
             st.session_state["show_error_form"] = True
             st.session_state["show_error_prompt"] = False
-            st.rerun()
 
     with col2:
         if st.button("No, Skip", use_container_width=True):
@@ -217,7 +216,6 @@ def _render_error_prompt_for_session() -> None:
             st.session_state.pop("last_session_id", None)
             st.session_state.pop("last_session_subject", None)
             st.session_state.pop("last_session_exam_type", None)
-            st.rerun()
 
 
 def render_error_logger_for_session(user_id: str, session_id: str) -> None:
@@ -561,12 +559,10 @@ def _render_mock_exam_error_prompt() -> None:
         if st.button("Yes, Log Errors", use_container_width=True, type="primary", key="mock_yes"):
             st.session_state["show_mock_error_form"] = True
             st.session_state["show_mock_error_prompt"] = False
-            st.rerun()
 
     with col2:
         if st.button("No, Skip", use_container_width=True, key="mock_skip"):
             _clear_mock_exam_state()
-            st.rerun()
 
 
 def _render_mock_exam_error_logger(user_id: str) -> None:
@@ -595,7 +591,7 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             continue
 
         with st.expander(f"{sec['label']} - {wrong} error(s)", expanded=False):
-            with st.form(f"mock_error_{key}", clear_on_submit=True):
+            with st.form(f"mock_error_{key}"):
                 topic = st.text_input(
                     "Topic *",
                     help="Specific topic of the error",
@@ -636,12 +632,10 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                             mock_exam_id=mock_exam_id,
                         )
                         if success:
-                            st.success(f"Error logged for {sec['label']}!")
-                            st.rerun()
+                            st.success(f"✅ Error logged for {sec['label']}!")
 
     if st.button("Done Logging Errors", key="mock_done"):
         _clear_mock_exam_state()
-        st.rerun()
 
 
 def _clear_mock_exam_state() -> None:

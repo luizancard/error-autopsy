@@ -211,7 +211,8 @@ def _render_error_breakdown(
         if not exam_id:
             continue
 
-        error_summary = mt.get_mock_exam_error_summary(errors, exam_id)
+        exam_date = exam.get("date")  # DD-MM-YYYY format from load_mock_exams()
+        error_summary = mt.get_mock_exam_error_summary(errors, exam_id, exam_date)
         if not error_summary:
             continue
 
