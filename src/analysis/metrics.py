@@ -613,11 +613,6 @@ def calculate_mock_exam_statistics(mock_exams: List[Dict[str, Any]]) -> Dict[str
     }
 
 
-# =============================================================================
-# VOLUME HEATMAP DATA
-# =============================================================================
-
-
 def get_activity_heatmap_data(
     sessions: List[Dict[str, Any]],
     errors: List[Dict[str, Any]],

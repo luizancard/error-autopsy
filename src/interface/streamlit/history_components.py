@@ -364,7 +364,7 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
 
 
 def render_editable_sessions_table(
-    data: List[Dict[str, Any]]
+    data: List[Dict[str, Any]],
 ) -> Optional[pd.DataFrame]:
     """
     Render an editable data table for study sessions.

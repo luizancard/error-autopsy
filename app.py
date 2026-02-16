@@ -20,7 +20,12 @@ from config import (
     AppConfig,
     TimeFilter,
 )
-from config.icons import ICON_DASHBOARD, ICON_HISTORY, ICON_LOG_ERROR, ICON_MOCK_ANALYSIS
+from config.icons import (
+    ICON_DASHBOARD,
+    ICON_HISTORY,
+    ICON_LOG_ERROR,
+    ICON_MOCK_ANALYSIS,
+)
 from src.interface.streamlit import components as ui
 from src.interface.streamlit import dashboard_components as dash
 from src.interface.streamlit import history_components as hist
@@ -259,7 +264,10 @@ def render_history() -> None:
         if filtered_data:
             edited_df = hist.render_editable_table(filtered_data)
             if edited_df is not None and st.button(
-                "Save Changes", use_container_width=True, type="primary", key="save_errors"
+                "Save Changes",
+                use_container_width=True,
+                type="primary",
+                key="save_errors",
             ):
                 updated_records = cast(
                     List[Dict[str, Any]], edited_df.to_dict("records")
@@ -279,7 +287,10 @@ def render_history() -> None:
         if sessions:
             edited_sessions_df = hist.render_editable_sessions_table(sessions)
             if edited_sessions_df is not None and st.button(
-                "Save Changes", use_container_width=True, type="primary", key="save_sessions"
+                "Save Changes",
+                use_container_width=True,
+                type="primary",
+                key="save_sessions",
             ):
                 updated_sessions = cast(
                     List[Dict[str, Any]], edited_sessions_df.to_dict("records")

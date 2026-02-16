@@ -529,11 +529,15 @@ def render_simulado_logger(user_id: str) -> None:
 
                     if has_errors:
                         st.session_state["mock_exam_id"] = exam_id
-                        st.session_state["mock_exam_type"] = stored_form_state["exam_type"]
+                        st.session_state["mock_exam_type"] = stored_form_state[
+                            "exam_type"
+                        ]
                         st.session_state["mock_exam_breakdown"] = breakdown_json
-                        st.session_state["mock_exam_date"] = stored_form_state["exam_date"]
+                        st.session_state["mock_exam_date"] = stored_form_state[
+                            "exam_date"
+                        ]
                         st.session_state["show_mock_error_prompt"] = True
-                    
+
                     # Rerun to clear form visually
                     st.rerun()
                 else:
@@ -657,15 +661,15 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             counter_key = f"logged_errors_{key}"
             if counter_key not in st.session_state:
                 st.session_state[counter_key] = 0
-            
+
             # Check if all errors for this section are logged
             if st.session_state[counter_key] >= wrong:
                 st.info("All errors for this section have been logged.")
                 continue
-            
+
             # Show progress
             st.caption(f"Logged {st.session_state[counter_key]} of {wrong} errors")
-            
+
             with st.form(f"mock_error_{key}"):
                 # For ENEM, show subject dropdown; for SAT, use section subject directly
                 if exam_type == "ENEM":
@@ -678,7 +682,7 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                 else:
                     subject = sec["subject"]
                     st.caption(f"Subject: {subject}")
-                
+
                 topic = st.text_input(
                     "Topic *",
                     help="Specific topic of the error",
@@ -730,10 +734,9 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
         if breakdown.get(key, {}) and not sec["is_essay"]
     )
     total_logged = sum(
-        st.session_state.get(f"logged_errors_{key}", 0)
-        for key in sections.keys()
+        st.session_state.get(f"logged_errors_{key}", 0) for key in sections.keys()
     )
-    
+
     if total_logged >= total_errors and total_errors > 0:
         st.success("All errors have been logged! Click 'Done' below to finish.")
 
@@ -744,10 +747,12 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
 def _clear_mock_exam_state() -> None:
     """Remove all mock-exam error logging state."""
     # Clear error counters
-    keys_to_remove = [k for k in st.session_state.keys() if k.startswith("logged_errors_")]
+    keys_to_remove = [
+        k for k in st.session_state.keys() if k.startswith("logged_errors_")
+    ]
     for k in keys_to_remove:
         st.session_state.pop(k, None)
-    
+
     # Clear mock exam state
     for k in [
         "mock_exam_id",
