@@ -178,7 +178,7 @@ def render_session_logger(user_id: str) -> None:
     if st.session_state.get("session_form_submitted", False):
         errors_count = st.session_state.get("last_session_errors", 0)
         st.success(
-            f"✅ Study session logged successfully! You answered {errors_count} questions incorrectly."
+            f"Study session logged successfully! You answered {errors_count} questions incorrectly."
         )
 
         col1, col2 = st.columns([3, 1])
@@ -681,7 +681,6 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             f"{sec['label']} - {st.session_state[counter_key]}/{wrong} errors logged",
             expanded=True,
         ):
-
             with st.form(f"mock_error_{key}"):
                 # For ENEM, show subject dropdown; for SAT, use section subject directly
                 if exam_type == "ENEM":
@@ -750,7 +749,7 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             val = sec_data.get("score", 0)
             mx = sec_data.get("max", 0)
             total_errors += max(mx - val, 0)
-    
+
     total_logged = sum(
         st.session_state.get(f"logged_errors_{key}", 0) for key in sections.keys()
     )

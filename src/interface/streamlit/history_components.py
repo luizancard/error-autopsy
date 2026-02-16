@@ -306,12 +306,16 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
         "Date",
     ]
 
+    # Add delete checkbox column
+    df[\"Delete\"] = False
+
     # Configure column settings
     column_config = {
-        "ID": st.column_config.TextColumn(
-            "ID",
-            width="small",
-            disabled=True,  # ID should not be editable
+        \"ID\": st.column_config.TextColumn(
+            \"ID\",
+            width=\"small\",
+            disabled=True,
+            hidden=True,  # Hide ID by default
         ),
         "Subject": st.column_config.TextColumn(
             "Subject",
@@ -345,6 +349,13 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
             help="Format: DD-MM-YYYY",
         ),
     }
+
+    # Add delete checkbox column configuration
+    column_config["Delete"] = st.column_config.CheckboxColumn(
+        "Delete",
+        width="small",
+        default=False,
+    )
 
     # Render editable data table
     st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
@@ -382,15 +393,43 @@ def render_editable_sessions_table(
     # Convert to DataFrame for editing
     df = pd.DataFrame(data)
 
-    # Calculate metrics
-    df["success_rate"] = (
-        (df["questions_correct"] / df["questions_total"] * 100).fillna(0).round(1)
-    )
-    df["avg_time_per_question"] = (
-        (df["time_spent_min"] / df["questions_total"]).fillna(0).round(2)
-    )
+    # Handle different column name variations from DB
+    # Map database column names to standard names
+    column_mapping = {
+        "total_questions": "questions_total",
+        "correct_count": "questions_correct",
+        "accuracy_percentage": "success_rate",
+        "pace_per_question": "avg_time_per_question",
+        "duration_minutes": "time_spent_min",
+    }
+    
+    for db_col, standard_col in column_mapping.items():
+        if db_col in df.columns and standard_col not in df.columns:
+            df[standard_col] = df[db_col]
+    
+    # Ensure columns exist
+    if "questions_total" not in df.columns and "total_questions" in df.columns:
+        df["questions_total"] = df["total_questions"]
+    if "questions_correct" not in df.columns and "correct_count" in df.columns:
+        df["questions_correct"] = df["correct_count"]
+    if "success_rate" not in df.columns and "accuracy_percentage" in df.columns:
+        df["success_rate"] = df["accuracy_percentage"]
+    if "avg_time_per_question" not in df.columns and "pace_per_question" in df.columns:
+        df["avg_time_per_question"] = df["pace_per_question"]
+    if "time_spent_min" not in df.columns and "duration_minutes" in df.columns:
+        df["time_spent_min"] = df["duration_minutes"]
+    
+    # Calculate metrics if not already present
+    if "success_rate" not in df.columns:
+        df["success_rate"] = (
+            (df["questions_correct"] / df["questions_total"] * 100).fillna(0).round(1)
+        )
+    if "avg_time_per_question" not in df.columns:
+        df["avg_time_per_question"] = (
+            (df["time_spent_min"] / df["questions_total"]).fillna(0).round(2)
+        )
 
-    # Reorder columns for better UX
+    # Reorder columns for better UX (ID hidden by default)
     column_order = [
         "id",
         "exam_type",
@@ -398,7 +437,6 @@ def render_editable_sessions_table(
         "topics_covered",
         "questions_total",
         "questions_correct",
-        "questions_wrong",
         "success_rate",
         "time_spent_min",
         "avg_time_per_question",
@@ -416,7 +454,6 @@ def render_editable_sessions_table(
         "topics_covered": "Topics Covered",
         "questions_total": "Total Questions",
         "questions_correct": "Correct",
-        "questions_wrong": "Wrong",
         "success_rate": "Success Rate (%)",
         "time_spent_min": "Time (min)",
         "avg_time_per_question": "Avg Time/Q (min)",
@@ -430,6 +467,7 @@ def render_editable_sessions_table(
             "ID",
             width="small",
             disabled=True,
+            hidden=True,  # Hide ID by default
         ),
         "Exam Type": st.column_config.TextColumn(
             "Exam Type",
@@ -453,11 +491,6 @@ def render_editable_sessions_table(
         ),
         "Correct": st.column_config.NumberColumn(
             "Correct",
-            width="small",
-            min_value=0,
-        ),
-        "Wrong": st.column_config.NumberColumn(
-            "Wrong",
             width="small",
             min_value=0,
         ),
@@ -485,8 +518,17 @@ def render_editable_sessions_table(
         ),
     }
 
+    # Add delete checkbox column
+    df["Delete"] = False
+    
     # Render editable data table
     st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
+
+    column_config["Delete"] = st.column_config.CheckboxColumn(
+        "Delete",
+        width="small",
+        default=False,
+    )
 
     edited_df = st.data_editor(
         df,

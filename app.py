@@ -10,6 +10,7 @@ A Streamlit application for tracking and analyzing exam performance through:
 from datetime import date
 from typing import Any, Dict, List, cast
 
+import pandas as pd
 import streamlit as st
 from streamlit_cookies_controller import CookieController
 
@@ -34,6 +35,7 @@ from src.interface.streamlit import mock_exam_analysis_components as mock_analys
 from src.interface.streamlit import telemetry_components as telemetry
 from src.services import auth_service, excel_service
 from src.services import db_service as db
+from src.services.db_service import supabase
 
 # App Configuration
 st.set_page_config(
@@ -264,67 +266,47 @@ def render_history() -> None:
         if filtered_data:
             edited_df = hist.render_editable_table(filtered_data)
 
-            col1, col2 = st.columns([3, 1])
-
-            with col1:
-                if edited_df is not None and st.button(
-                    "Save Changes",
-                    use_container_width=True,
-                    type="primary",
-                    key="save_errors",
-                ):
-                    updated_records = cast(
-                        List[Dict[str, Any]], edited_df.to_dict("records")
-                    )
-                    if db.update_errors(user_id, updated_records):
-                        st.success("Changes saved successfully!")
+            if edited_df is not None:
+                col1, col2 = st.columns([3, 1])
+                
+                # Handle deletes first - convert to pandas Series for operations
+                delete_col = edited_df.get("Delete")
+                if delete_col is not None and not isinstance(delete_col, pd.Series):
+                    delete_mask = pd.Series(delete_col)
+                elif delete_col is not None:
+                    delete_mask = delete_col
+                else:
+                    delete_mask = pd.Series([False] * len(edited_df))
+                
+                if delete_mask.any():
+                    with col2:
+                        st.warning(f"{int(delete_mask.sum())} error(s) marked for deletion")
+                
+                # Remove delete column and rows marked for deletion before saving
+                edited_df_to_save = edited_df[~delete_mask].drop(columns=["Delete"], errors="ignore")
+                
+                with col1:
+                    if st.button(
+                        "Save Changes",
+                        use_container_width=True,
+                        type="primary",
+                        key="save_errors",
+                    ):
+                        # First delete marked records
+                        if delete_mask.any():
+                            ids_to_delete = edited_df[delete_mask]["ID"].tolist()
+                            if db.delete_errors(user_id, ids_to_delete):
+                                st.success(f"Deleted {len(ids_to_delete)} error(s)!")
+                        
+                        # Then save updated records
+                        if len(edited_df_to_save) > 0:
+                            updated_records = cast(
+                                List[Dict[str, Any]], edited_df_to_save.to_dict("records")
+                            )
+                            if db.update_errors(user_id, updated_records):
+                                st.success("Changes saved successfully!")
+                        
                         st.rerun()
-
-            with col2:
-                # Delete selected errors
-                if st.button(
-                    "Delete Selected",
-                    use_container_width=True,
-                    type="secondary",
-                    key="delete_errors_btn",
-                ):
-                    st.session_state["show_delete_errors"] = True
-
-            # Delete confirmation
-            if st.session_state.get("show_delete_errors", False):
-                with st.form("delete_errors_form"):
-                    st.warning("⚠️ Select errors to delete (this cannot be undone)")
-
-                    # Create checkboxes for each error
-                    selected_ids = []
-                    for idx, row in enumerate(filtered_data):
-                        if st.checkbox(
-                            f"{row.get('subject', '')} - {row.get('topic', '')} ({row.get('date', '')})",
-                            key=f"del_err_{idx}",
-                        ):
-                            selected_ids.append(row.get("id"))
-
-                    col_del1, col_del2 = st.columns(2)
-                    with col_del1:
-                        if st.form_submit_button(
-                            "Confirm Delete", type="primary", use_container_width=True
-                        ):
-                            if selected_ids:
-                                if db.delete_errors(user_id, selected_ids):
-                                    st.success(f"Deleted {len(selected_ids)} error(s)!")
-                                    st.session_state["show_delete_errors"] = False
-                                    st.rerun()
-                                else:
-                                    st.error(
-                                        "Failed to delete errors. Please try again."
-                                    )
-                            else:
-                                st.warning("No errors selected.")
-
-                    with col_del2:
-                        if st.form_submit_button("Cancel", use_container_width=True):
-                            st.session_state["show_delete_errors"] = False
-                            st.rerun()
         else:
             st.info("No records match your filters.")
 
@@ -336,17 +318,43 @@ def render_history() -> None:
 
         if sessions:
             edited_sessions_df = hist.render_editable_sessions_table(sessions)
-            if edited_sessions_df is not None and st.button(
-                "Save Changes",
-                use_container_width=True,
-                type="primary",
-                key="save_sessions",
-            ):
-                updated_sessions = cast(
-                    List[Dict[str, Any]], edited_sessions_df.to_dict("records")
-                )
-                if db.update_sessions(user_id, updated_sessions):
-                    st.success("Changes saved successfully!")
+            if edited_sessions_df is not None:
+                # Handle deletes first - convert to pandas Series for operations
+                delete_col = edited_sessions_df.get("Delete")
+                if delete_col is not None and not isinstance(delete_col, pd.Series):
+                    delete_mask = pd.Series(delete_col)
+                elif delete_col is not None:
+                    delete_mask = delete_col
+                else:
+                    delete_mask = pd.Series([False] * len(edited_sessions_df))
+                
+                if delete_mask.any():
+                    st.warning(f"{int(delete_mask.sum())} session(s) marked for deletion")
+                
+                # Remove delete column and rows marked for deletion before saving
+                edited_sessions_df_to_save = edited_sessions_df[~delete_mask].drop(columns=["Delete"], errors="ignore")
+                
+                if st.button(
+                    "Save Changes",
+                    use_container_width=True,
+                    type="primary",
+                    key="save_sessions",
+                ):
+                    # First delete marked records
+                    if delete_mask.any():
+                        ids_to_delete = edited_sessions_df[delete_mask]["ID"].tolist()
+                        for id_val in ids_to_delete:
+                            supabase.table("study_sessions").delete().eq("id", id_val).execute()
+                        st.success(f"Deleted {len(ids_to_delete)} session(s)!")
+                    
+                    # Then save updated records
+                    if len(edited_sessions_df_to_save) > 0:
+                        updated_sessions = cast(
+                            List[Dict[str, Any]], edited_sessions_df_to_save.to_dict("records")
+                        )
+                        if db.update_sessions(user_id, updated_sessions):
+                            st.success("Changes saved successfully!")
+                    
                     st.rerun()
         else:
             st.info("No study sessions found. Log some sessions to see them here!")
