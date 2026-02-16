@@ -377,7 +377,7 @@ def analyze_session_performance(sessions: List[Dict[str, Any]]) -> List[Dict[str
         elif s["pace_zone"] == "Rushing" and accuracy >= AccuracyZone.MASTERY_THRESHOLD:
             s["performance_zone"] = "Rushing & Accurate (Risky)"
         elif s["pace_zone"] == "Optimal" and accuracy >= AccuracyZone.MASTERY_THRESHOLD:
-            s["performance_zone"] = "Mastery Zone ⭐"
+            s["performance_zone"] = "Mastery Zone"
         elif (
             s["pace_zone"] == "Too Slow" and accuracy >= AccuracyZone.MASTERY_THRESHOLD
         ):
@@ -596,11 +596,11 @@ def calculate_mock_exam_statistics(mock_exams: List[Dict[str, Any]]) -> Dict[str
         )
 
         if latest_score > prev_avg + 5:
-            trend = "Improving ↗"
+            trend = "Improving"
         elif latest_score < prev_avg - 5:
-            trend = "Declining ↘"
+            trend = "Declining"
         else:
-            trend = "Stable →"
+            trend = "Stable"
     else:
         trend = "—"
 
@@ -702,3 +702,106 @@ def get_activity_heatmap_data(
         heatmap_data.append(day_data)
 
     return heatmap_data
+
+
+# =============================================================================
+# MOCK EXAM SECTION ANALYSIS
+# =============================================================================
+
+
+def extract_section_scores(
+    mock_exams: List[Dict[str, Any]], exam_type: str
+) -> List[Dict[str, Any]]:
+    """
+    Extract section-level scores from breakdown_json for charting.
+
+    Args:
+        mock_exams: List of mock exam records
+        exam_type: Filter to this exam type
+
+    Returns:
+        List of dicts with section, score, max, percentage, exam_name, date
+    """
+    results = []
+    filtered = [e for e in mock_exams if e.get("exam_type") == exam_type]
+
+    for exam in filtered:
+        breakdown = exam.get("breakdown_json") or {}
+        if not isinstance(breakdown, dict):
+            continue
+
+        exam_name = exam.get("exam_name", "Untitled")
+        date_str = exam.get("date", "")
+
+        for key, sec_data in breakdown.items():
+            # Skip non-section entries like tri_score, scaled_score
+            if not isinstance(sec_data, dict) or "label" not in sec_data:
+                continue
+
+            score = sec_data.get("score", 0)
+            max_val = sec_data.get("max", 1)
+            pct = (score / max_val * 100) if max_val > 0 else 0
+
+            results.append({
+                "section": sec_data.get("label", key),
+                "score": score,
+                "max": max_val,
+                "percentage": round(pct, 1),
+                "exam_name": exam_name,
+                "date": date_str,
+            })
+
+    return results
+
+
+def get_section_trend_data(
+    mock_exams: List[Dict[str, Any]], exam_type: str
+) -> List[Dict[str, Any]]:
+    """
+    Get section scores over time for trend analysis.
+
+    Args:
+        mock_exams: List of mock exam records
+        exam_type: Filter to this exam type
+
+    Returns:
+        List of dicts with section, percentage, date (sorted by date)
+    """
+    section_data = extract_section_scores(mock_exams, exam_type)
+    if not section_data:
+        return []
+
+    # Sort by date
+    sorted_data = sorted(
+        section_data,
+        key=lambda x: parse_date_str(x.get("date", "")) or datetime.min,
+    )
+
+    return sorted_data
+
+
+def get_mock_exam_error_summary(
+    errors: List[Dict[str, Any]], mock_exam_id: str
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Group errors by subject for a specific mock exam.
+
+    Args:
+        errors: List of all error records
+        mock_exam_id: The mock exam ID to filter by
+
+    Returns:
+        Dictionary mapping subject -> list of error dicts
+    """
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+
+    for error in errors:
+        if error.get("mock_exam_id") != mock_exam_id:
+            continue
+
+        subject = error.get("subject", "Unknown")
+        if subject not in grouped:
+            grouped[subject] = []
+        grouped[subject].append(error)
+
+    return grouped

@@ -517,3 +517,93 @@ def chart_session_summary(sessions: List[Dict[str, Any]]) -> Optional[alt.Chart]
     )
 
     return _configure_chart_style(chart)
+
+
+# =============================================================================
+# MOCK EXAM SECTION CHARTS
+# =============================================================================
+
+
+def chart_section_comparison(
+    section_data: List[Dict[str, Any]],
+) -> Optional[alt.Chart]:
+    """
+    Create a grouped bar chart comparing section scores for the latest exam(s).
+
+    Args:
+        section_data: List of dicts with section, percentage, exam_name
+
+    Returns:
+        Grouped bar chart or None if no data
+    """
+    if not section_data:
+        return None
+
+    df = pd.DataFrame(section_data)
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("section:N", title="Section"),
+            y=alt.Y("percentage:Q", title="Score %", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color("exam_name:N", legend=alt.Legend(title="Exam")),
+            xOffset="exam_name:N",
+            tooltip=[
+                alt.Tooltip("exam_name:N", title="Exam"),
+                alt.Tooltip("section:N", title="Section"),
+                alt.Tooltip("score:Q", title="Score"),
+                alt.Tooltip("max:Q", title="Max"),
+                alt.Tooltip("percentage:Q", title="%", format=".1f"),
+            ],
+        )
+        .properties(height=320, title="Section Score Comparison")
+    )
+
+    return _configure_chart_style(chart)
+
+
+def chart_section_trends(
+    trend_data: List[Dict[str, Any]],
+) -> Optional[alt.Chart]:
+    """
+    Create a multi-line chart showing section scores over time.
+
+    Args:
+        trend_data: List of dicts with section, percentage, date
+
+    Returns:
+        Multi-line trend chart or None if no data
+    """
+    if not trend_data:
+        return None
+
+    df = pd.DataFrame(trend_data)
+
+    # Parse dates
+    df["date_parsed"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
+    df = df.dropna(subset=["date_parsed"])
+
+    if df.empty:
+        return None
+
+    df = df.sort_values("date_parsed")
+
+    chart = (
+        alt.Chart(df)
+        .mark_line(point=alt.OverlayMarkDef(size=80, filled=True), strokeWidth=2)
+        .encode(
+            x=alt.X("date_parsed:T", title="Date"),
+            y=alt.Y("percentage:Q", title="Score %", scale=alt.Scale(domain=[0, 100])),
+            color=alt.Color("section:N", legend=alt.Legend(title="Section")),
+            tooltip=[
+                alt.Tooltip("section:N", title="Section"),
+                alt.Tooltip("date:N", title="Date"),
+                alt.Tooltip("percentage:Q", title="Score %", format=".1f"),
+                alt.Tooltip("exam_name:N", title="Exam"),
+            ],
+        )
+        .properties(height=320, title="Section Progress Over Time")
+    )
+
+    return _configure_chart_style(chart)

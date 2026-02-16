@@ -7,7 +7,6 @@ A Streamlit application for tracking and analyzing exam performance through:
 - Error analysis with AI insights
 """
 
-import importlib
 from datetime import date
 from typing import Any, Dict, List, cast
 
@@ -16,25 +15,20 @@ from streamlit_cookies_controller import CookieController
 
 from assets import styles
 from config import (
-    AVOIDABLE_ERROR_TYPES,
     DEFAULT_DIFFICULTY,
     DEFAULT_ERROR_TYPE,
     AppConfig,
-    Colors,
     TimeFilter,
 )
-from config.icons import ICON_BOOK, ICON_DASHBOARD, ICON_HISTORY, ICON_LOG_ERROR
-from src.analysis import metrics as mt
-from src.analysis import plots as pt
+from config.icons import ICON_DASHBOARD, ICON_HISTORY, ICON_LOG_ERROR, ICON_MOCK_ANALYSIS
 from src.interface.streamlit import components as ui
 from src.interface.streamlit import dashboard_components as dash
 from src.interface.streamlit import history_components as hist
 from src.interface.streamlit import login_component
+from src.interface.streamlit import mock_exam_analysis_components as mock_analysis
 from src.interface.streamlit import telemetry_components as telemetry
 from src.services import auth_service, excel_service
 from src.services import db_service as db
-
-importlib.reload(mt)
 
 # App Configuration
 st.set_page_config(
@@ -134,287 +128,6 @@ errors = db.load_data(user_id)
 sessions = db.load_study_sessions(user_id)
 mock_exams = db.load_mock_exams(user_id)
 
-# Helper Functions
-
-
-def calculate_dashboard_metrics(
-    data: List[Dict[str, Any]],
-) -> Dict[str, Any]:
-    """
-    Calculate all dashboard metrics from filtered data.
-
-    Args:
-        data: Filtered list of error records.
-
-    Returns:
-        Dictionary with total, top_subject, top_type, avoidable_count, avoidable_pct.
-    """
-    total = len(data)
-
-    # Subject counts
-    subj_counts: Dict[str, int] = {}
-    for r in data:
-        s = r.get("subject", "Unknown") or "Unknown"
-        subj_counts[s] = subj_counts.get(s, 0) + 1
-    top_subject = (
-        max(subj_counts.items(), key=lambda x: x[1])[0] if subj_counts else "—"
-    )
-
-    # Type counts
-    type_counts: Dict[str, int] = {}
-    for r in data:
-        t = r.get("type", "Other") or "Other"
-        type_counts[t] = type_counts.get(t, 0) + 1
-    top_type = max(type_counts.items(), key=lambda x: x[1])[0] if type_counts else "—"
-
-    # Avoidable errors
-    avoidable_count = sum(
-        type_counts.get(error_type, 0) for error_type in AVOIDABLE_ERROR_TYPES
-    )
-    avoidable_pct = (avoidable_count / total * 100) if total > 0 else 0.0
-
-    return {
-        "total": total,
-        "top_subject": top_subject,
-        "top_type": top_type,
-        "avoidable_count": avoidable_count,
-        "avoidable_pct": avoidable_pct,
-    }
-
-
-def render_dashboard_metrics(metrics: Dict[str, Any]) -> None:
-    """
-    Render the metric cards row.
-
-    Args:
-        metrics: Dictionary from calculate_dashboard_metrics.
-    """
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        ui.render_metric_card(
-            label="Total Errors",
-            value=metrics["total"],
-            icon_char="!",
-            icon_bg=Colors.CARD_TOTAL_BG,
-            icon_color=Colors.CARD_TOTAL_COLOR,
-        )
-
-    with col2:
-        ui.render_metric_card(
-            label="Subject with Most Errors",
-            value=metrics["top_subject"],
-            icon_char=ICON_BOOK,
-            icon_bg=Colors.CARD_SUBJECT_BG,
-            icon_color=Colors.CARD_SUBJECT_COLOR,
-        )
-
-    with col3:
-        ui.render_metric_card(
-            label="Primary Error Reason",
-            value=metrics["top_type"],
-            icon_char="⚡",
-            icon_bg=Colors.CARD_ERROR_BG,
-            icon_color=Colors.CARD_ERROR_COLOR,
-        )
-
-    with col4:
-        ui.render_metric_card(
-            label="Avoidable Errors",
-            value=metrics["avoidable_count"],
-            icon_char="⚠️",
-            icon_bg=Colors.CARD_AVOIDABLE_BG,
-            icon_color=Colors.CARD_AVOIDABLE_COLOR,
-            pill_text=f"{metrics['avoidable_pct']:.1f}%",
-            pill_class="pill-negative",
-        )
-
-
-def render_chart_section(
-    chart_errors: List[Dict[str, Any]], selected_filter: str
-) -> None:
-    """
-    Render the chart section with toggle between views.
-
-    Args:
-        chart_errors: Filtered error data for charts.
-        selected_filter: Current time filter label for messages.
-    """
-    current_view = st.session_state.chart_view
-    subtitles = ["Analysis by discipline", "Analysis by topic", "Timeline overview"]
-
-    if current_view >= len(subtitles):
-        current_view = 0
-        st.session_state.chart_view = 0
-
-    col_title, col_button = st.columns([12, 1])
-    with col_title:
-        ui.render_chart_header(subtitles[current_view])
-
-    with col_button:
-        if st.button("→", key="chart_toggle", help="Toggle view"):
-            st.session_state.chart_view = (current_view + 1) % len(subtitles)
-            st.rerun()
-
-    if current_view == 0:
-        _render_subject_chart(chart_errors, selected_filter)
-    elif current_view == 1:
-        _render_topic_chart(chart_errors, selected_filter)
-    else:
-        _render_timeline_chart(chart_errors)
-
-
-def _render_subject_chart(
-    chart_errors: List[Dict[str, Any]], selected_filter: str
-) -> None:
-    """Render subject analysis chart with drill-down support."""
-    subject_data = mt.aggregate_by_subject(chart_errors)
-
-    if not subject_data:
-        st.info(f"No data available for {selected_filter}. Log some errors!")
-        return
-
-    chart = pt.chart_subjects(subject_data)
-    if chart:
-        event = st.altair_chart(
-            chart,
-            use_container_width=True,
-            on_select="rerun",
-            key="subject_chart_select",
-        )
-
-        if event and "selection" in event and "selected_subjects" in event["selection"]:
-            selection_list = event["selection"]["selected_subjects"]
-            if selection_list:
-                selected_subj_name = selection_list[0].get("Subject")
-                if selected_subj_name:
-                    st.session_state.drill_down_subject = selected_subj_name
-                    st.session_state.chart_view = 1
-                    st.rerun()
-
-
-def _render_topic_chart(
-    chart_errors: List[Dict[str, Any]], selected_filter: str
-) -> None:
-    """Render topic analysis chart with optional drill-down filter."""
-    target_subject = st.session_state.get("drill_down_subject")
-
-    if target_subject:
-        c_back, c_text = st.columns([1.5, 8])
-        with c_back:
-            if st.button("← Back", key="clear_drill_down", help="Clear Subject Filter"):
-                st.session_state.drill_down_subject = None
-                st.session_state.chart_view = 0
-                st.rerun()
-        with c_text:
-            ui.render_drill_down_info(target_subject)
-
-        filtered_errors = [
-            e for e in chart_errors if e.get("subject") == target_subject
-        ]
-        topic_data = mt.aggregate_by_topic(filtered_errors)
-    else:
-        topic_data = mt.aggregate_by_topic(chart_errors)
-
-    if not topic_data:
-        st.info(f"No data available for {selected_filter}. Log some errors!")
-        return
-
-    chart = pt.chart_topics(topic_data)
-    if chart:
-        st.altair_chart(chart, use_container_width=True)
-
-
-def _render_timeline_chart(chart_errors: List[Dict[str, Any]]) -> None:
-    """Render timeline chart."""
-    month_data = mt.aggregate_by_month_all(chart_errors)
-    chart = pt.chart_timeline(month_data)
-    if chart:
-        st.altair_chart(chart, use_container_width=True)
-
-
-def render_insight_panel(chart_errors: List[Dict[str, Any]]) -> None:
-    """
-    Render the insight panel with cached insights.
-
-    Args:
-        chart_errors: Error data to generate insights from.
-    """
-    qp = st.query_params
-    if qp.get("refresh_insight") == "true":
-        st.session_state.dashboard_insight = ui.generate_web_insight(chart_errors)
-
-    if (
-        "dashboard_insight" not in st.session_state
-        or st.session_state.dashboard_insight is None
-        or str(st.session_state.dashboard_insight) == "None"
-    ):
-        st.session_state.dashboard_insight = ui.generate_web_insight(chart_errors)
-
-    mini_insight = st.session_state.dashboard_insight
-    if mini_insight is None or str(mini_insight) == "None":
-        mini_insight = "Insight generation failed. Please log new errors!"
-
-    st.markdown(
-        f"""
-        <div class="insight-card">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 class="insight-title" style="color: #eeeeee; margin:0;">Insight</h3>
-            </div>
-            <div class="insight-content">{mini_insight}</div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_pie_chart_section(data: List[Dict[str, Any]], selected_filter: str) -> None:
-    """
-    Render the error breakdown pie chart section.
-
-    Args:
-        data: Filtered error data.
-        selected_filter: Current time filter label.
-    """
-    st.markdown("<div style='margin-top: 3rem;'></div>", unsafe_allow_html=True)
-
-    # Create two columns for pie chart and difficulty chart
-    col_pie, col_difficulty = st.columns(2)
-
-    with col_pie:
-        st.markdown(
-            """
-            <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Error Breakdown</h3>
-            <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">Distribution by mistake type</p>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        type_data = mt.count_error_types(data)
-        if not type_data:
-            st.info(f"No data available for {selected_filter}.")
-        else:
-            chart = pt.chart_error_types_pie(type_data)
-            if chart:
-                st.altair_chart(chart, use_container_width=True)
-
-    with col_difficulty:
-        st.markdown(
-            """
-            <h3 style="font-family:'Helvetica Neue', sans-serif;font-size:1.35rem;font-weight:800;color:#0f172a;margin:0 0 0.4rem 0;letter-spacing:0.08em;text-transform:uppercase;">Difficulty Level</h3>
-            <p style="font-family:'Helvetica Neue', sans-serif;font-size:0.95rem;color:#94a3b8;font-weight:500;font-style:italic;margin:0 0 1.5rem 0;">Errors by exercise difficulty</p>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        difficulty_data = mt.count_difficulties(data)
-        if not difficulty_data:
-            st.info(f"No data available for {selected_filter}.")
-        else:
-            chart = pt.chart_difficulties(difficulty_data)
-            if chart:
-                st.altair_chart(chart, use_container_width=True)
-
 
 # Page Renderers
 
@@ -430,6 +143,11 @@ def render_log_session() -> None:
     telemetry.render_tabbed_logger(user_id)
 
 
+def render_mock_analysis() -> None:
+    """Render the mock exam analysis page."""
+    mock_analysis.render_mock_exam_analysis(mock_exams, errors)
+
+
 def render_history() -> None:
     """Render the history page with import/export functionality."""
     st.title("History")
@@ -438,11 +156,11 @@ def render_history() -> None:
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col2:
-        if st.button("📥 Import Data", use_container_width=True):
+        if st.button("Import Data", use_container_width=True):
             st.session_state["show_import"] = True
 
     with col3:
-        if st.button("📤 Export Data", use_container_width=True):
+        if st.button("Export Data", use_container_width=True):
             # Generate Excel file
             excel_buffer = excel_service.export_to_excel(errors, sessions, mock_exams)
 
@@ -478,7 +196,7 @@ def render_history() -> None:
                     for issue in issues:
                         st.write(f"- {issue}")
                 else:
-                    st.success("✅ Ready to import:")
+                    st.success("Ready to import:")
                     st.info(
                         f"- {len(errors_import)} errors\n"
                         f"- {len(sessions_import)} study sessions\n"
@@ -564,6 +282,7 @@ with st.sidebar:
     st.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
     ui.render_menu_button("Dashboard", "Dashboard", ICON_DASHBOARD)
     ui.render_menu_button("Log Session", "Log Session", ICON_LOG_ERROR)
+    ui.render_menu_button("Mock Analysis", "Mock Analysis", ICON_MOCK_ANALYSIS)
     ui.render_menu_button("History", "History", ICON_HISTORY)
     st.markdown("</div>", unsafe_allow_html=True)
 
@@ -604,8 +323,10 @@ if menu == "Dashboard":
     render_dashboard()
 elif menu == "Log Session":
     render_log_session()
+elif menu == "Mock Analysis":
+    render_mock_analysis()
 elif menu == "History":
     render_history()
 else:
-    # Fallback for legacy "Log Error" menu item
+    # Fallback for legacy menu items
     render_log_session()

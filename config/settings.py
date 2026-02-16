@@ -13,7 +13,7 @@ This module contains all configurable settings including:
 
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Literal
+from typing import Any, Dict, List, Literal, Optional
 
 # Base paths
 
@@ -186,6 +186,100 @@ def get_pace_benchmark(exam_type: str) -> float:
 
 
 # =============================================================================
+# EXAM SECTION DEFINITIONS (for structured mock exams)
+# =============================================================================
+
+# Each section: key -> {label, min, max, subject (maps to error log subject)}
+
+ENEM_SECTIONS: Dict[str, Dict[str, Any]] = {
+    "linguagens": {
+        "label": "Linguagens",
+        "min": 0,
+        "max": 45,
+        "subject": "Linguagens (Languages & Codes)",
+        "is_essay": False,
+    },
+    "ciencias_humanas": {
+        "label": "Ciencias Humanas",
+        "min": 0,
+        "max": 45,
+        "subject": "Ciencias Humanas (Social Sciences)",
+        "is_essay": False,
+    },
+    "ciencias_natureza": {
+        "label": "Ciencias da Natureza",
+        "min": 0,
+        "max": 45,
+        "subject": "Ciencias da Natureza (Natural Sciences)",
+        "is_essay": False,
+    },
+    "matematica": {
+        "label": "Matematica",
+        "min": 0,
+        "max": 45,
+        "subject": "Matematica (Mathematics)",
+        "is_essay": False,
+    },
+    "redacao": {
+        "label": "Redacao",
+        "min": 400,
+        "max": 1000,
+        "subject": "Redacao (Essay)",
+        "is_essay": True,
+    },
+}
+
+SAT_SECTIONS: Dict[str, Dict[str, Any]] = {
+    "rw_module1": {
+        "label": "R&W Module 1",
+        "min": 0,
+        "max": 27,
+        "subject": "Evidence-Based Reading",
+        "is_essay": False,
+    },
+    "rw_module2": {
+        "label": "R&W Module 2",
+        "min": 0,
+        "max": 27,
+        "subject": "Writing and Language",
+        "is_essay": False,
+    },
+    "math_module1": {
+        "label": "Math Module 1",
+        "min": 0,
+        "max": 22,
+        "subject": "Math (No Calculator)",
+        "is_essay": False,
+    },
+    "math_module2": {
+        "label": "Math Module 2",
+        "min": 0,
+        "max": 22,
+        "subject": "Math (Calculator)",
+        "is_essay": False,
+    },
+}
+
+EXAM_SECTION_DEFS: Dict[str, Dict[str, Dict[str, Any]]] = {
+    "ENEM": ENEM_SECTIONS,
+    "SAT": SAT_SECTIONS,
+}
+
+
+def get_sections_for_exam(exam_type: str) -> Optional[Dict[str, Dict[str, Any]]]:
+    """
+    Get section definitions for an exam type, if it has structured sections.
+
+    Args:
+        exam_type: The exam type identifier
+
+    Returns:
+        Section definitions dict or None if exam uses generic scoring
+    """
+    return EXAM_SECTION_DEFS.get(exam_type)
+
+
+# =============================================================================
 # ERROR TYPES
 # =============================================================================
 
@@ -347,7 +441,7 @@ class AppConfig:
     """General application settings."""
 
     PAGE_TITLE: str = "Error Autopsy"
-    PAGE_ICON: str = "📝"
+    PAGE_ICON: str = "A"
     LAYOUT: Literal["centered", "wide"] = "wide"
 
     # Success message display duration (seconds)

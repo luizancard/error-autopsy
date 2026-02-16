@@ -20,6 +20,11 @@ ICON_HISTORY = """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
     <path d="M12 6v6l4 2"></path>
 </svg>"""
 
+ICON_MOCK_ANALYSIS = """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+    <path d="M3 3v18h18"></path>
+    <path d="M7 16l4-6 4 4 5-7"></path>
+</svg>"""
+
 # Card icons
 ICON_BOOK = """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
     <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>

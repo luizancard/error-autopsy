@@ -562,9 +562,10 @@ def log_error_with_session(
     difficulty: str = "Medium",
     exam_type: str = "General",
     session_id: Optional[str] = None,
+    mock_exam_id: Optional[str] = None,
 ) -> bool:
     """
-    Log an error with optional session linking and exam type.
+    Log an error with optional session/mock exam linking and exam type.
 
     Args:
         user_id: User UUID
@@ -576,6 +577,7 @@ def log_error_with_session(
         difficulty: Difficulty level
         exam_type: Type of exam context
         session_id: Optional session ID to link this error to
+        mock_exam_id: Optional mock exam ID to link this error to
 
     Returns:
         True if successful
@@ -600,6 +602,10 @@ def log_error_with_session(
         # Add session link if provided
         if session_id:
             payload["session_id"] = session_id
+
+        # Add mock exam link if provided
+        if mock_exam_id:
+            payload["mock_exam_id"] = mock_exam_id
 
         supabase.table("errors").insert(payload).execute()
         return True

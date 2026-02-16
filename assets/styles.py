@@ -17,8 +17,8 @@ def local_css():
             
             const buttonMap = {
                 'Dashboard': 'Dashboard',
-                'Log a Mistake': 'Log Error',
-                'IA Coach': 'Coach AI',
+                'Log Session': 'Log Session',
+                'Mock Analysis': 'Mock Analysis',
                 'History': 'History'
             };
             

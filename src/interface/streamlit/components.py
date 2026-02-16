@@ -131,7 +131,7 @@ def render_idle_state() -> None:
         """
         <div class="dashed-container idle-container">
             <div class="idle-icon-circle">
-                <span class="idle-icon">📊</span>
+                <span class="idle-icon">--</span>
             </div>
             <p class="idle-text">No data to display</p>
         </div>

@@ -271,7 +271,7 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
         Edited DataFrame if changes were made, None otherwise.
     """
     if not data:
-        st.info("📭 No records found. Try adjusting your filters or log some errors!")
+        st.info("No records found. Try adjusting your filters or log some errors!")
         return None
 
     # Convert to DataFrame for editing
