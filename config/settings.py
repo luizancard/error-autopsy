@@ -42,7 +42,8 @@ class ExamType(Enum):
     FUVEST = "FUVEST"  # USP entrance exam
     ENEM = "ENEM"  # National high school exam
     UNICAMP = "UNICAMP"  # UNICAMP entrance exam
-    ITA_IME = "ITA/IME"  # Military engineering schools
+    ITA = "ITA"  # Aeronautics Institute of Technology
+    IME = "IME"  # Military Institute of Engineering
     SAT = "SAT"  # US college admissions
     GENERAL = "General"  # Generic/practice sessions
 
@@ -59,32 +60,31 @@ DEFAULT_EXAM_TYPE: str = ExamType.GENERAL.value
 
 EXAM_SUBJECTS: Dict[str, List[str]] = {
     "FUVEST": [
-        "Portuguese",
-        "Portuguese Literature",
-        "Mathematics",
+        "Biology",
         "Physics",
         "Chemistry",
-        "Biology",
+        "Mathematics",
         "History",
         "Geography",
+        "Portuguese",
+        "Literature",
         "English",
-        "Redação (Essay)",
     ],
     "ENEM": [
-        "Português (Portuguese)",
-        "Literatura (Literature)",
-        "Inglês (English)",
-        "Espanhol (Spanish)",
-        "Artes (Arts)",
-        "Educação Física (Physical Education)",
-        "Matemática (Mathematics)",
-        "História (History)",
-        "Geografia (Geography)",
-        "Filosofia (Philosophy)",
-        "Sociologia (Sociology)",
-        "Biologia (Biology)",
-        "Química (Chemistry)",
-        "Física (Physics)",
+        "Portuguese",
+        "Literature",
+        "English",
+        "Spanish",
+        "Arts",
+        "Physical Education",
+        "Mathematics",
+        "History",
+        "Geography",
+        "Philosophy",
+        "Sociology",
+        "Biology",
+        "Chemistry",
+        "Physics",
         "Redação (Essay)",
     ],
     "UNICAMP": [
@@ -99,7 +99,14 @@ EXAM_SUBJECTS: Dict[str, List[str]] = {
         "Redação (Essay)",
         "Interdisciplinary",
     ],
-    "ITA/IME": [
+    "ITA": [
+        "Mathematics",
+        "Physics",
+        "Chemistry",
+        "Portuguese",
+        "English",
+    ],
+    "IME": [
         "Mathematics",
         "Physics",
         "Chemistry",
@@ -133,8 +140,9 @@ EXAM_PACE_BENCHMARKS: Dict[str, float] = {
     "FUVEST": 3.0,  # ~3 minutes per question (Phase 1)
     "ENEM": 3.0,  # ~180 minutes / 45 questions = 4 min, but 3 is ideal
     "UNICAMP": 3.5,  # Longer, more complex questions
-    "ITA/IME": 4.0,  # Extremely difficult, longer solutions
-    "SAT": 1.25,  # ~75 seconds per question (varies by section)
+    "ITA": 4.0,  # Extremely difficult
+    "IME": 4.0,  # Extremely difficult
+    "SAT": 1.25,  # ~75 seconds per question
     "General": 2.5,  # Conservative general benchmark
 }
 
@@ -268,10 +276,147 @@ SAT_SECTIONS: Dict[str, Dict[str, Any]] = {
     },
 }
 
+FUVEST_SECTIONS: Dict[str, Dict[str, Any]] = {
+    "fase1": {
+        "label": "Phase 1 (General Knowledge)",
+        "min": 0,
+        "max": 90,
+        "subject": "General",
+        "is_essay": False,
+    },
+}
+
+# Maps each ENEM section key to the specific subjects available for error logging
+ENEM_SECTION_SUBJECTS: Dict[str, List[str]] = {
+    "linguagens": ["Portuguese", "Literature"],
+    "ciencias_humanas": ["History", "Geography", "Philosophy", "Sociology"],
+    "matematica": ["Mathematics"],
+    "ciencias_natureza": ["Physics", "Biology", "Chemistry"],
+}
+
+ITA_SECTIONS: Dict[str, Dict[str, Any]] = {
+    "matematica": {
+        "label": "Matemática",
+        "min": 0,
+        "max": 12,
+        "subject": "Mathematics",
+        "is_essay": False,
+    },
+    "fisica": {
+        "label": "Física",
+        "min": 0,
+        "max": 12,
+        "subject": "Physics",
+        "is_essay": False,
+    },
+    "quimica": {
+        "label": "Química",
+        "min": 0,
+        "max": 12,
+        "subject": "Chemistry",
+        "is_essay": False,
+    },
+    "portugues": {
+        "label": "Português",
+        "min": 0,
+        "max": 12,
+        "subject": "Portuguese",
+        "is_essay": False,
+    },
+    "ingles": {
+        "label": "Inglês",
+        "min": 0,
+        "max": 12,
+        "subject": "English",
+        "is_essay": False,
+    },
+}
+
+UNICAMP_SECTIONS: Dict[str, Dict[str, Any]] = {
+    "portugues_literatura": {
+        "label": "Língua Portuguesa e Literaturas",
+        "min": 0,
+        "max": 12,
+        "subject": "Língua Portuguesa e Literaturas",
+        "is_essay": False,
+    },
+    "matematica": {
+        "label": "Matemática",
+        "min": 0,
+        "max": 12,
+        "subject": "Mathematics",
+        "is_essay": False,
+    },
+    "ciencias_natureza": {
+        "label": "Ciências da Natureza",
+        "min": 0,
+        "max": 21,
+        "subject": "Ciências da Natureza",
+        "is_essay": False,
+    },
+    "ciencias_humanas": {
+        "label": "Ciências Humanas",
+        "min": 0,
+        "max": 20,
+        "subject": "Ciências Humanas",
+        "is_essay": False,
+    },
+    "ingles": {
+        "label": "Inglês",
+        "min": 0,
+        "max": 7,
+        "subject": "English",
+        "is_essay": False,
+    },
+}
+
+# Maps UNICAMP section keys to subjects for error logging
+UNICAMP_SECTION_SUBJECTS: Dict[str, List[str]] = {
+    "portugues_literatura": ["Portuguese", "Literature"],
+    "matematica": ["Mathematics"],
+    "ciencias_natureza": ["Biology", "Chemistry", "Physics"],
+    "ciencias_humanas": ["History", "Geography", "Philosophy", "Sociology"],
+    "ingles": ["English"],
+}
+
 EXAM_SECTION_DEFS: Dict[str, Dict[str, Dict[str, Any]]] = {
     "ENEM": ENEM_SECTIONS,
     "SAT": SAT_SECTIONS,
+    "FUVEST": FUVEST_SECTIONS,
+    "ITA": ITA_SECTIONS,
+    "UNICAMP": UNICAMP_SECTIONS,
 }
+
+
+def get_subjects_for_section(exam_type: str, section_key: str) -> List[str]:
+    """
+    Get the list of subjects available for error logging in a specific section.
+
+    For ENEM, each section maps to specific subjects (e.g., Linguagens → Portuguese, Literature).
+    For FUVEST, returns the full FUVEST subject list.
+    For other exams, returns the section's single subject.
+
+    Args:
+        exam_type: The exam type identifier
+        section_key: The section key (e.g., 'linguagens', 'matematica')
+
+    Returns:
+        List of subject names for that section
+    """
+    if exam_type == "ENEM":
+        return ENEM_SECTION_SUBJECTS.get(section_key, get_subjects_for_exam(exam_type))
+    elif exam_type == "UNICAMP":
+        return UNICAMP_SECTION_SUBJECTS.get(
+            section_key, get_subjects_for_exam(exam_type)
+        )
+    elif exam_type == "FUVEST":
+        return get_subjects_for_exam("FUVEST")
+    else:
+        # For ITA, SAT, or other exams, return the section's subject as a single-item list
+        sections = get_sections_for_exam(exam_type)
+        if sections and section_key in sections:
+            return [sections[section_key]["subject"]]
+        return get_subjects_for_exam(exam_type)
 
 
 def get_sections_for_exam(exam_type: str) -> Optional[Dict[str, Dict[str, Any]]]:

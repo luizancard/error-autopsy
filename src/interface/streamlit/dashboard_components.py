@@ -12,7 +12,7 @@ All charts respect the time filter.
 from typing import Any, Dict, List
 
 import streamlit as st
-from config import AVOIDABLE_ERROR_TYPES, Colors, TimeFilter
+from config import AVOIDABLE_ERROR_TYPES, EXAM_TYPES, Colors, TimeFilter
 from config.icons import ICON_BOOK
 from src.analysis import metrics as mt
 from src.analysis import plots as pt
@@ -34,18 +34,24 @@ def render_telemetry_dashboard(
         mock_exams: List of mock exam records
         time_filter: Selected time filter
     """
-    # Apply time filtering
-    months = TimeFilter.MONTHS_MAP.get(time_filter)
-    filtered_errors = mt.filter_data_by_range(errors, months)
-    filtered_sessions = mt.filter_data_by_range(sessions, months)
 
-    # Header with filter
-    col1, col2 = st.columns([3, 1])
+    # Header with filters
+    col1, col2, col3 = st.columns([3, 1, 1])
 
     with col1:
         st.title("Performance Dashboard")
 
     with col2:
+        exam_type_filter = st.multiselect(
+            "Exam Type",
+            options=EXAM_TYPES,
+            default=[],
+            key="dash_exam_filter",
+            label_visibility="collapsed",
+            placeholder="Select exams",
+        )
+
+    with col3:
         selected_filter = st.selectbox(
             "Time Period",
             options=TimeFilter.OPTIONS,
@@ -60,6 +66,20 @@ def render_telemetry_dashboard(
         st.rerun()
 
     st.divider()
+
+    # Apply time filtering
+    months = TimeFilter.MONTHS_MAP.get(selected_filter)
+    filtered_errors = mt.filter_data_by_range(errors, months)
+    filtered_sessions = mt.filter_data_by_range(sessions, months)
+
+    # Apply exam type filtering
+    if exam_type_filter:
+        filtered_errors = [
+            e for e in filtered_errors if e.get("exam_type") in exam_type_filter
+        ]
+        filtered_sessions = [
+            s for s in filtered_sessions if s.get("exam_type") in exam_type_filter
+        ]
 
     # ======================================================================
     # STAT CARDS ROW
@@ -99,7 +119,7 @@ def render_telemetry_dashboard(
         month_data = mt.aggregate_by_month_all(filtered_errors)
         chart = pt.chart_timeline(month_data)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
         else:
             st.info("Not enough data for a timeline yet.")
 
@@ -114,7 +134,7 @@ def render_telemetry_dashboard(
         difficulty_data = mt.count_difficulties(filtered_errors)
         chart = pt.chart_difficulties(difficulty_data)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
         else:
             st.info("No difficulty data yet.")
 
@@ -134,7 +154,7 @@ def render_telemetry_dashboard(
         error_type_data = mt.count_error_types(filtered_errors)
         chart = pt.chart_error_types_pie(error_type_data)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
         else:
             st.info("No error type data yet.")
 
@@ -148,7 +168,42 @@ def render_telemetry_dashboard(
         )
         chart = pt.chart_daily_questions(filtered_sessions)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
+        else:
+            st.info("No study session data yet.")
+
+    st.markdown("---")
+
+    # --- Exam Type Distribution + Pace per Question ---
+    col_exam_type, col_pace = st.columns(2)
+
+    with col_exam_type:
+        st.markdown(
+            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Errors by Exam Type</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+            "Distribution across exam types</p>",
+            unsafe_allow_html=True,
+        )
+        exam_type_data = mt.count_by_field(filtered_errors, "exam_type")
+        chart = pt.chart_exam_type_distribution(exam_type_data)
+        if chart:
+            st.altair_chart(chart, width="stretch")
+        else:
+            st.info("No exam type data yet.")
+
+    with col_pace:
+        st.markdown(
+            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Pace per Question</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+            "Average minutes per question by subject</p>",
+            unsafe_allow_html=True,
+        )
+        pace_data = mt.get_pace_by_subject(filtered_sessions)
+        chart = pt.chart_pace_by_subject(pace_data)
+        if chart:
+            st.altair_chart(chart, width="stretch")
         else:
             st.info("No study session data yet.")
 
@@ -258,7 +313,7 @@ def _render_subject_section(
 
         chart = pt.chart_topics(topic_data)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
 
     else:
         # SUBJECT OVERVIEW MODE
@@ -273,7 +328,7 @@ def _render_subject_section(
         if chart:
             event = st.altair_chart(
                 chart,
-                use_container_width=True,
+                width="stretch",
                 on_select="rerun",
                 key="subject_chart_select",
             )

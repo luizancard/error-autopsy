@@ -102,6 +102,7 @@ def log_error(
     description: Optional[str],
     date_val: date,
     difficulty: str = "Medium",
+    exam_type: str = "General",
 ) -> bool:
     if not supabase:
         return False
@@ -117,6 +118,7 @@ def log_error(
             "description": description.strip() if description else "",
             "date": _format_date_iso(date_val),
             "difficulty": difficulty,
+            "exam_type": exam_type,
         }
 
         supabase.table("errors").insert(payload).execute()

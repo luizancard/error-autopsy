@@ -27,7 +27,7 @@ def render_login():
                     "Password", type="password", placeholder="••••••••"
                 )
                 submit_login = st.form_submit_button(
-                    "Log In", use_container_width=True, type="primary"
+                    "Log In", width="stretch", type="primary"
                 )
 
             if submit_login:
@@ -54,7 +54,7 @@ def render_login():
                     "Password", type="password", placeholder="••••••••"
                 )
                 submit_signup = st.form_submit_button(
-                    "Sign Up", use_container_width=True
+                    "Sign Up", width="stretch"
                 )
 
                 if submit_signup:

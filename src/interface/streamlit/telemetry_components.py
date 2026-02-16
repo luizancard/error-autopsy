@@ -15,6 +15,7 @@ from config import (
     get_pace_benchmark,
     get_sections_for_exam,
     get_subjects_for_exam,
+    get_subjects_for_section,
 )
 from src.services import db_service as db
 
@@ -143,7 +144,7 @@ def render_session_logger(user_id: str) -> None:
 
         # Submit button
         submitted = st.form_submit_button(
-            "Log Session", use_container_width=True, type="primary"
+            "Log Session", width="stretch", type="primary"
         )
 
         if submitted:
@@ -183,7 +184,7 @@ def render_session_logger(user_id: str) -> None:
 
         col1, col2 = st.columns([3, 1])
         with col2:
-            if st.button("Clear Form", use_container_width=True, key="session_clear"):
+            if st.button("Clear Form", width="stretch", key="session_clear"):
                 st.session_state["session_form_submitted"] = False
                 st.rerun()
 
@@ -208,12 +209,12 @@ def _render_error_prompt_for_session() -> None:
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        if st.button("Yes, Log Errors", use_container_width=True, type="primary"):
+        if st.button("Yes, Log Errors", width="stretch", type="primary"):
             st.session_state["show_error_form"] = True
             st.session_state["show_error_prompt"] = False
 
     with col2:
-        if st.button("No, Skip", use_container_width=True):
+        if st.button("No, Skip", width="stretch"):
             st.session_state["show_error_prompt"] = False
             st.session_state.pop("last_session_id", None)
             st.session_state.pop("last_session_subject", None)
@@ -252,7 +253,7 @@ def render_error_logger_for_session(user_id: str, session_id: str) -> None:
             "Description (optional)", help="What went wrong? What did you learn?"
         )
 
-        submitted = st.form_submit_button("Add Error", use_container_width=True)
+        submitted = st.form_submit_button("Add Error", width="stretch")
 
         if submitted:
             if not topic.strip():
@@ -457,7 +458,7 @@ def render_simulado_logger(user_id: str) -> None:
     col_button1, col_button2 = st.columns([3, 1])
 
     with col_button1:
-        if st.button("Log Mock Exam", use_container_width=True, type="primary"):
+        if st.button("Log Mock Exam", width="stretch", type="primary"):
             # Validation and submission
             if not form_state["exam_name"].strip():
                 st.error("Please enter an exam name.")
@@ -544,7 +545,7 @@ def render_simulado_logger(user_id: str) -> None:
                     st.error("Failed to log exam. Please try again.")
 
     with col_button2:
-        if st.button("Clear", use_container_width=True):
+        if st.button("Clear", width="stretch"):
             st.session_state.mock_exam_form = {
                 "exam_type": "General",
                 "exam_date": date.today(),
@@ -566,7 +567,7 @@ def render_simulado_logger(user_id: str) -> None:
 
         col1, col2 = st.columns([3, 1])
         with col2:
-            if st.button("Clear Form", use_container_width=True):
+            if st.button("Clear Form", width="stretch"):
                 st.session_state["simulado_form_submitted"] = False
                 st.session_state["simulado_exam_id"] = None
                 st.rerun()
@@ -621,13 +622,13 @@ def _render_mock_exam_error_prompt() -> None:
 
     with col1:
         if st.button(
-            "Yes, Log Errors", use_container_width=True, type="primary", key="mock_yes"
+            "Yes, Log Errors", width="stretch", type="primary", key="mock_yes"
         ):
             st.session_state["show_mock_error_form"] = True
             st.session_state["show_mock_error_prompt"] = False
 
     with col2:
-        if st.button("No, Skip", use_container_width=True, key="mock_skip"):
+        if st.button("No, Skip", width="stretch", key="mock_skip"):
             _clear_mock_exam_state()
 
 
@@ -682,16 +683,20 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             expanded=True,
         ):
             with st.form(f"mock_error_{key}"):
-                # For ENEM, show subject dropdown; for SAT, use section subject directly
-                if exam_type == "ENEM":
+                # Get subjects appropriate for this specific section
+                section_subjects = get_subjects_for_section(exam_type, key)
+
+                if len(section_subjects) > 1:
+                    # Multiple subjects available — show dropdown
                     subject = st.selectbox(
                         "Subject *",
-                        options=get_subjects_for_exam(exam_type),
+                        options=section_subjects,
                         help="Select the specific subject for this error",
                         key=f"mock_subject_{key}",
                     )
                 else:
-                    subject = sec["subject"]
+                    # Single subject — auto-assign
+                    subject = section_subjects[0]
                     st.caption(f"Subject: {subject}")
 
                 topic = st.text_input(
@@ -718,7 +723,7 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                     key=f"mock_desc_{key}",
                 )
 
-                if st.form_submit_button("Add Error", use_container_width=True):
+                if st.form_submit_button("Add Error", width="stretch"):
                     if not topic.strip():
                         st.error("Please enter a topic.")
                     else:
@@ -828,19 +833,22 @@ def render_legacy_error_logger(user_id: str) -> None:
         col1, col2 = st.columns(2)
 
         with col1:
+            exam_type = st.selectbox(
+                "Exam Type", options=EXAM_TYPES, index=len(EXAM_TYPES) - 1
+            )  # Default to General
             subject = st.text_input("Subject *")
             topic = st.text_input("Topic *")
-            difficulty = st.selectbox("Difficulty", options=DIFFICULTY_LEVELS, index=1)
 
         with col2:
             error_date = st.date_input(
                 "Date", value=date.today(), max_value=date.today()
             )
             error_type = st.selectbox("Error Type *", options=ERROR_TYPES, index=0)
+            difficulty = st.selectbox("Difficulty", options=DIFFICULTY_LEVELS, index=1)
 
         description = st.text_area("Description (optional)", help="What went wrong?")
 
-        submitted = st.form_submit_button("Log Error", use_container_width=True)
+        submitted = st.form_submit_button("Log Error", width="stretch")
 
         if submitted:
             if not subject.strip() or not topic.strip():
@@ -854,6 +862,7 @@ def render_legacy_error_logger(user_id: str) -> None:
                     description=description,
                     date_val=error_date,
                     difficulty=difficulty,
+                    exam_type=exam_type,
                 )
 
                 if success:

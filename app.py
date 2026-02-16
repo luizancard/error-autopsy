@@ -163,11 +163,11 @@ def render_history() -> None:
     col1, col2, col3 = st.columns([2, 1, 1])
 
     with col2:
-        if st.button("Import Data", use_container_width=True):
+        if st.button("Import Data", width="stretch"):
             st.session_state["show_import"] = True
 
     with col3:
-        if st.button("Export Data", use_container_width=True):
+        if st.button("Export Data", width="stretch"):
             # Generate Excel file
             excel_buffer = excel_service.export_to_excel(errors, sessions, mock_exams)
 
@@ -176,7 +176,7 @@ def render_history() -> None:
                 data=excel_buffer,
                 file_name=f"exam_telemetry_export_{date.today().strftime('%Y%m%d')}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
+                width="stretch",
             )
 
     # Import modal
@@ -290,7 +290,7 @@ def render_history() -> None:
                 with col1:
                     if st.button(
                         "Save Changes",
-                        use_container_width=True,
+                        width="stretch",
                         type="primary",
                         key="save_errors",
                     ):
@@ -343,7 +343,7 @@ def render_history() -> None:
 
                 if st.button(
                     "Save Changes",
-                    use_container_width=True,
+                    width="stretch",
                     type="primary",
                     key="save_sessions",
                 ):
@@ -409,7 +409,7 @@ with st.sidebar:
     """,
         unsafe_allow_html=True,
     )
-    if st.button("Log Out", use_container_width=True, type="secondary"):
+    if st.button("Log Out", width="stretch", type="secondary"):
         auth_service.sign_out()
         st.session_state["user"] = None
         st.session_state.pop("access_token", None)

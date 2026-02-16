@@ -13,10 +13,16 @@ Provides a dedicated analysis dashboard for mock exams including:
 from typing import Any, Dict, List
 
 import streamlit as st
-from config import EXAM_SECTION_DEFS, Colors
+from config import AVOIDABLE_ERROR_TYPES, EXAM_SECTION_DEFS, Colors
 from src.analysis import metrics as mt
 from src.analysis import plots as pt
 from src.interface.streamlit import components as ui
+
+
+def _get_linked_errors(exams: list[dict], all_errors: list[dict]) -> list[dict]:
+    """Get errors linked to the given mock exams."""
+    exam_ids = {e.get("id") for e in exams if e.get("id")}
+    return [e for e in all_errors if e.get("mock_exam_id") in exam_ids]
 
 
 def render_mock_exam_analysis(
@@ -68,14 +74,47 @@ def render_mock_exam_analysis(
 
     st.divider()
 
-    # Score trajectory
-    _render_trajectory(filtered_exams)
+    # Score trajectory + TRI/Scaled score side by side (ENEM/SAT)
+    if selected_type in ("ENEM", "SAT"):
+        scaled_data = mt.get_scaled_score_trajectory(filtered_exams, selected_type)
+        if scaled_data:
+            col_traj, col_scaled = st.columns(2)
+            with col_traj:
+                _render_trajectory(filtered_exams)
+            with col_scaled:
+                if selected_type == "ENEM":
+                    chart = pt.chart_scaled_score_trajectory(
+                        scaled_data,
+                        score_label="TRI Score",
+                        target_score=700,
+                        max_score=1000,
+                    )
+                else:
+                    chart = pt.chart_scaled_score_trajectory(
+                        scaled_data,
+                        score_label="Scaled Score",
+                        target_score=1200,
+                        max_score=1600,
+                    )
+                if chart:
+                    st.altair_chart(chart, width="stretch")
+        else:
+            _render_trajectory(filtered_exams)
+    else:
+        _render_trajectory(filtered_exams)
 
-    # Section analysis (only for ENEM/SAT)
-    has_sections = selected_type in EXAM_SECTION_DEFS
-    if has_sections:
+    # Section analysis vs Error analysis
+    sections = EXAM_SECTION_DEFS.get(selected_type, {})
+    if len(sections) > 1:
+        # Multi-section exams (ENEM, SAT) — show section comparison
         st.markdown("---")
         _render_section_analysis(filtered_exams, selected_type)
+
+    # Error analysis (subject/topic/difficulty/type charts)
+    linked_errors = _get_linked_errors(filtered_exams, errors)
+    if linked_errors:
+        st.markdown("---")
+        _render_error_analysis(linked_errors, selected_type)
 
     # Error breakdown per exam
     st.markdown("---")
@@ -152,7 +191,7 @@ def _render_trajectory(exams: List[Dict[str, Any]]) -> None:
     chart = pt.chart_mock_exam_trajectory(trajectory)
 
     if chart:
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="stretch")
     else:
         st.info("Not enough data for a trajectory chart yet.")
 
@@ -173,7 +212,7 @@ def _render_section_analysis(exams: List[Dict[str, Any]], exam_type: str) -> Non
         section_data = mt.extract_section_scores(exams, exam_type)
         chart = pt.chart_section_comparison(section_data)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
         else:
             st.info("No section data available.")
 
@@ -181,9 +220,264 @@ def _render_section_analysis(exams: List[Dict[str, Any]], exam_type: str) -> Non
         trend_data = mt.get_section_trend_data(exams, exam_type)
         chart = pt.chart_section_trends(trend_data)
         if chart:
-            st.altair_chart(chart, use_container_width=True)
+            st.altair_chart(chart, width="stretch")
         else:
             st.info("Need multiple exams to show trends.")
+
+
+def _render_error_analysis(
+    linked_errors: List[Dict[str, Any]], exam_type: str = "All"
+) -> None:
+    """Render interactive error analysis charts (subject, topic, difficulty, types)."""
+    st.markdown(
+        "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+        'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Error Analysis</h3>'
+        '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+        "Subject and error pattern breakdown across your mock exams</p>",
+        unsafe_allow_html=True,
+    )
+
+    # --- Row 1: Subject ↔ Topic drill-down ---
+    target_subject = st.session_state.get("mock_drill_down_subject")
+
+    if target_subject:
+        # TOPIC DRILL-DOWN MODE
+        c_back, c_text = st.columns([1.5, 8])
+        with c_back:
+            if st.button(
+                "< Back", key="mock_clear_drill_down", help="Back to subjects"
+            ):
+                st.session_state.mock_drill_down_subject = None
+                st.rerun()
+        with c_text:
+            ui.render_drill_down_info(target_subject)
+
+        topic_errors = [e for e in linked_errors if e.get("subject") == target_subject]
+        topic_data = mt.aggregate_by_topic(topic_errors)
+
+        if topic_data:
+            chart = pt.chart_topics(topic_data)
+            if chart:
+                st.altair_chart(chart, width="stretch")
+        else:
+            st.info(f"No topic data for {target_subject}.")
+    else:
+        # SUBJECT OVERVIEW MODE
+        subject_data = mt.aggregate_by_subject(linked_errors)
+
+        if subject_data:
+            chart = pt.chart_subjects(subject_data)
+            if chart:
+                event = st.altair_chart(
+                    chart,
+                    width="stretch",
+                    on_select="rerun",
+                    key="mock_subject_chart_select",
+                )
+
+                if (
+                    event
+                    and "selection" in event
+                    and "selected_subjects" in event["selection"]
+                ):
+                    selection_list = event["selection"]["selected_subjects"]
+                    if selection_list:
+                        selected_subj = selection_list[0].get("Subject")
+                        if selected_subj:
+                            st.session_state.mock_drill_down_subject = selected_subj
+                            st.rerun()
+        else:
+            st.info("No subject data available.")
+
+    # --- Row 2: Per-section topic breakdown ---
+    from config import get_subjects_for_section
+
+    sections = EXAM_SECTION_DEFS.get(exam_type, {})
+
+    # Build section_label → list of subjects to filter by
+    section_topic_groups: dict[str, list[str]] = {}
+    for sec_key, sec in sections.items():
+        if sec.get("is_essay"):
+            continue
+        label = sec.get("label", sec_key)
+        subjects_for_sec = get_subjects_for_section(exam_type, sec_key)
+        section_topic_groups[label] = subjects_for_sec
+
+    if len(section_topic_groups) > 1:
+        section_cols = st.columns(len(section_topic_groups))
+        for idx, (group_label, subjects_list) in enumerate(
+            section_topic_groups.items()
+        ):
+            with section_cols[idx]:
+                st.markdown(
+                    f"<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+                    f'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">{group_label} Topics</h3>'
+                    f'<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+                    f"Most common error topics in {group_label}</p>",
+                    unsafe_allow_html=True,
+                )
+                subj_errors = [
+                    e for e in linked_errors if e.get("subject") in subjects_list
+                ]
+                topic_data = mt.aggregate_by_topic(subj_errors)
+                if topic_data:
+                    chart = pt.chart_topics(topic_data)
+                    if chart:
+                        st.altair_chart(chart, width="stretch")
+                else:
+                    st.info(f"No topic data for {group_label} yet.")
+
+    # --- Row 3: Difficulty + Error Types side by side ---
+    col_diff, col_types = st.columns(2)
+
+    with col_diff:
+        st.markdown(
+            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Difficulty Analysis</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+            "Errors by exercise difficulty</p>",
+            unsafe_allow_html=True,
+        )
+        difficulty_data = mt.count_difficulties(linked_errors)
+        chart = pt.chart_difficulties(difficulty_data)
+        if chart:
+            st.altair_chart(chart, width="stretch")
+        else:
+            st.info("No difficulty data yet.")
+
+    with col_types:
+        st.markdown(
+            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Error Types</h3>'
+            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+            "Common mistakes by category</p>",
+            unsafe_allow_html=True,
+        )
+        error_type_data = mt.count_error_types(linked_errors)
+        chart = pt.chart_error_types_pie(error_type_data)
+        if chart:
+            st.altair_chart(chart, width="stretch")
+        else:
+            st.info("No error type data yet.")
+
+    # --- Row 4: Weakest Subjects + Avoidable Errors ---
+    _render_weakest_subjects(linked_errors)
+    _render_avoidable_errors(linked_errors)
+
+
+def _render_weakest_subjects(errors: List[Dict[str, Any]]) -> None:
+    """Show top 3 weakest subjects with their most common error type."""
+    subject_data = mt.aggregate_by_subject(errors)
+    if not subject_data:
+        return
+
+    # Sort by error count descending
+    sorted_subjects = sorted(subject_data.items(), key=lambda x: x[1], reverse=True)[:3]
+
+    st.markdown(
+        "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+        'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Weakest Subjects</h3>'
+        '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+        "Top subjects to focus your study on</p>",
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(len(sorted_subjects))
+    for i, (subject, count) in enumerate(sorted_subjects):
+        # Find most common error type for this subject
+        subj_errors = [e for e in errors if e.get("subject") == subject]
+        type_counts: Dict[str, int] = {}
+        for err in subj_errors:
+            t = err.get("type", "Other") or "Other"
+            type_counts[t] = type_counts.get(t, 0) + 1
+        top_type = max(type_counts, key=type_counts.get) if type_counts else "--"
+
+        with cols[i]:
+            ui.render_metric_card(
+                label=subject,
+                value=f"{count} errors",
+                icon_char="!",
+                icon_bg=Colors.CARD_ERROR_BG,
+                icon_color=Colors.CARD_ERROR_COLOR,
+                pill_text=f"Top: {top_type}",
+                pill_class="pill-negative",
+            )
+
+
+def _render_avoidable_errors(errors: List[Dict[str, Any]]) -> None:
+    """Show avoidable error stats — errors that could be eliminated with better habits."""
+    total = len(errors)
+    if total == 0:
+        return
+
+    # Count avoidable errors
+    type_counts: Dict[str, int] = {}
+    for err in errors:
+        t = err.get("type", "Other") or "Other"
+        type_counts[t] = type_counts.get(t, 0) + 1
+
+    avoidable_count = sum(type_counts.get(et, 0) for et in AVOIDABLE_ERROR_TYPES)
+    if avoidable_count == 0:
+        return
+
+    avoidable_pct = avoidable_count / total * 100
+
+    # Most common avoidable type
+    avoidable_breakdown = {
+        t: c for t, c in type_counts.items() if t in AVOIDABLE_ERROR_TYPES
+    }
+    top_avoidable = (
+        max(avoidable_breakdown, key=avoidable_breakdown.get)
+        if avoidable_breakdown
+        else "--"
+    )
+
+    # Subject most affected by avoidable errors
+    avoidable_errors = [e for e in errors if e.get("type") in AVOIDABLE_ERROR_TYPES]
+    subj_counts: Dict[str, int] = {}
+    for err in avoidable_errors:
+        s = err.get("subject", "Unknown") or "Unknown"
+        subj_counts[s] = subj_counts.get(s, 0) + 1
+    top_subj = max(subj_counts, key=subj_counts.get) if subj_counts else "--"
+
+    st.markdown(
+        "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
+        'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Avoidable Errors</h3>'
+        '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
+        "Mistakes that could be eliminated with better test-taking habits</p>",
+        unsafe_allow_html=True,
+    )
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        ui.render_metric_card(
+            label="Avoidable Errors",
+            value=avoidable_count,
+            icon_char="!",
+            icon_bg=Colors.CARD_AVOIDABLE_BG,
+            icon_color=Colors.CARD_AVOIDABLE_COLOR,
+            pill_text=f"{avoidable_pct:.0f}% of total",
+            pill_class="pill-negative",
+        )
+
+    with col2:
+        ui.render_metric_card(
+            label="Most Common Type",
+            value=top_avoidable,
+            icon_char="!",
+            icon_bg=Colors.CARD_TOTAL_BG,
+            icon_color=Colors.CARD_TOTAL_COLOR,
+        )
+
+    with col3:
+        ui.render_metric_card(
+            label="Most Affected Subject",
+            value=top_subj,
+            icon_char="!",
+            icon_bg=Colors.CARD_SUBJECT_BG,
+            icon_color=Colors.CARD_SUBJECT_COLOR,
+        )
 
 
 def _render_error_breakdown(
@@ -198,9 +492,7 @@ def _render_error_breakdown(
         unsafe_allow_html=True,
     )
 
-    # Check if any exam has linked errors
-    exam_ids = {e.get("id") for e in exams if e.get("id")}
-    linked_errors = [e for e in errors if e.get("mock_exam_id") in exam_ids]
+    linked_errors = _get_linked_errors(exams, errors)
 
     if not linked_errors:
         st.info("No errors have been linked to these mock exams yet.")
@@ -211,7 +503,7 @@ def _render_error_breakdown(
         if not exam_id:
             continue
 
-        exam_date = exam.get("date")  # DD-MM-YYYY format from load_mock_exams()
+        exam_date = exam.get("date")
         error_summary = mt.get_mock_exam_error_summary(errors, exam_id, exam_date)
         if not error_summary:
             continue
@@ -298,9 +590,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
             col_edit, col_delete = st.columns(2)
 
             with col_edit:
-                if st.button(
-                    "Edit Exam", key=f"edit_{exam_id}", use_container_width=True
-                ):
+                if st.button("Edit Exam", key=f"edit_{exam_id}", width="stretch"):
                     st.session_state[f"editing_{exam_id}"] = True
                     st.rerun()
 
@@ -308,7 +598,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
                 if st.button(
                     "Delete Exam",
                     key=f"delete_{exam_id}",
-                    use_container_width=True,
+                    width="stretch",
                     type="secondary",
                 ):
                     st.session_state[f"confirm_delete_{exam_id}"] = True
@@ -329,7 +619,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
                     if st.button(
                         "Yes, Delete",
                         key=f"confirm_yes_{exam_id}",
-                        use_container_width=True,
+                        width="stretch",
                         type="primary",
                     ):
                         from src.services import db_service as db
@@ -344,7 +634,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
 
                 with col_no:
                     if st.button(
-                        "Cancel", key=f"confirm_no_{exam_id}", use_container_width=True
+                        "Cancel", key=f"confirm_no_{exam_id}", width="stretch"
                     ):
                         st.session_state.pop(f"confirm_delete_{exam_id}", None)
                         st.rerun()
@@ -437,9 +727,7 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
         col_submit, col_cancel = st.columns(2)
 
         with col_submit:
-            if st.form_submit_button(
-                "Save Changes", use_container_width=True, type="primary"
-            ):
+            if st.form_submit_button("Save Changes", width="stretch", type="primary"):
                 from src.services import db_service as db
 
                 user_id = st.session_state["user"].id
@@ -471,6 +759,6 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
                     st.error("Failed to save changes. Please try again.")
 
         with col_cancel:
-            if st.form_submit_button("Cancel", use_container_width=True):
+            if st.form_submit_button("Cancel", width="stretch"):
                 st.session_state.pop(f"editing_{exam_id}", None)
                 st.rerun()

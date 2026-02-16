@@ -25,16 +25,25 @@ def get_unique_values(data: List[Dict[str, Any]]) -> Dict[str, List[str]]:
     """
     subjects: Set[str] = set()
     topics: Set[str] = set()
+    exam_types: Set[str] = set()
 
     for record in data:
         subject = record.get("subject", "").strip()
         topic = record.get("topic", "").strip()
+        etype = record.get("exam_type", "").strip()
+
         if subject:
             subjects.add(subject)
         if topic:
             topics.add(topic)
+        if etype:
+            exam_types.add(etype)
 
-    return {"subjects": sorted(list(subjects)), "topics": sorted(list(topics))}
+    return {
+        "subjects": sorted(list(subjects)),
+        "topics": sorted(list(topics)),
+        "exam_types": sorted(list(exam_types)),
+    }
 
 
 def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
@@ -43,6 +52,7 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
         st.session_state.history_filters = {
             "subjects": [],
             "topics": [],
+            "exam_types": [],  # Values from data
             "error_types": [],
             "difficulties": [],
             "date_from": None,
@@ -52,8 +62,18 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
     # Pega valores únicos dos dados passados
     unique_vals = get_unique_values(all_data)
 
-    with st.popover("Filter", use_container_width=False):
+    with st.popover("Filter", width="content"):
         st.markdown("### Filter Options")
+
+        # Exam Type filter
+        st.markdown("**Exam Type**")
+        selected_exam_types = st.multiselect(
+            "Select exam types",
+            options=unique_vals["exam_types"],
+            default=st.session_state.history_filters.get("exam_types", []),
+            key="filter_exam_types_select",
+            label_visibility="collapsed",
+        )
 
         # Subject filter
         st.markdown("**Subject**")
@@ -114,10 +134,11 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
         # Action buttons
         col_apply, col_clear = st.columns(2)
         with col_apply:
-            if st.button("Apply Filters", use_container_width=True, type="primary"):
+            if st.button("Apply Filters", width="stretch", type="primary"):
                 st.session_state.history_filters = {
                     "subjects": selected_subjects,
                     "topics": selected_topics,
+                    "exam_types": selected_exam_types,
                     "error_types": selected_types,
                     "difficulties": selected_difficulties,
                     "date_from": date_from if date_from else None,
@@ -126,10 +147,11 @@ def render_filter_popup(all_data: List[Dict[str, Any]]) -> None:
                 st.rerun()
 
         with col_clear:
-            if st.button("Clear All", use_container_width=True):
+            if st.button("Clear All", width="stretch"):
                 st.session_state.history_filters = {
                     "subjects": [],
                     "topics": [],
+                    "exam_types": [],
                     "error_types": [],
                     "difficulties": [],
                     "date_from": None,
@@ -149,6 +171,10 @@ def render_active_filters() -> None:
     if filters.get("subjects"):
         for subj in filters["subjects"]:
             active_filters.append(("Subject", subj))
+
+    if filters.get("exam_types"):
+        for et in filters["exam_types"]:
+            active_filters.append(("Exam Type", et))
 
     if filters.get("topics"):
         for topic in filters["topics"]:
@@ -207,6 +233,14 @@ def apply_filters(
             record
             for record in filtered_data
             if record.get("subject") in filters["subjects"]
+        ]
+
+    # Filter by exam types
+    if filters.get("exam_types"):
+        filtered_data = [
+            record
+            for record in filtered_data
+            if record.get("exam_type") in filters["exam_types"]
         ]
 
     # Filter by topics
@@ -281,9 +315,13 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
     if "difficulty" not in df.columns:
         df["difficulty"] = "Medium"
 
+    if "exam_type" not in df.columns:
+        df["exam_type"] = "General"
+
     # Reorder columns for better UX
     column_order = [
         "id",
+        "exam_type",
         "subject",
         "topic",
         "type",
@@ -296,15 +334,18 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
     df = df[column_order]
 
     # Rename columns for display
-    df.columns = [
-        "ID",
-        "Subject",
-        "Topic",
-        "Error Type",
-        "Difficulty",
-        "Description",
-        "Date",
-    ]
+    rename_map = {
+        "id": "ID",
+        "exam_type": "Exam Type",
+        "subject": "Subject",
+        "topic": "Topic",
+        "type": "Error Type",
+        "difficulty": "Difficulty",
+        "description": "Description",
+        "date": "Date",
+    }
+    # Only rename columns that exist
+    df = df.rename(columns=rename_map)
 
     # Add delete checkbox column
     df["Delete"] = False
@@ -369,7 +410,7 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
             "Date",
             "Delete",
         ],
-        use_container_width=True,
+        width="stretch",
         num_rows="fixed",
         hide_index=True,
         key="history_data_editor",
@@ -538,7 +579,19 @@ def render_editable_sessions_table(
     edited_df = st.data_editor(
         df,
         column_config=column_config,
-        use_container_width=True,
+        column_order=[
+            "Exam Type",
+            "Subject",
+            "Topics Covered",
+            "Total Questions",
+            "Correct",
+            "Success Rate (%)",
+            "Time (min)",
+            "Avg Time/Q (min)",
+            "Date",
+            "Delete",
+        ],
+        width="stretch",
         num_rows="fixed",
         hide_index=True,
         key="sessions_data_editor",

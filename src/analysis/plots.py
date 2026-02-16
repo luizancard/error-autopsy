@@ -352,10 +352,11 @@ def chart_mock_exam_trajectory(
     df["date_parsed"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
     df = df.sort_values("date_parsed")
 
-    # Color by exam type
+    # Color by exam type — use theme palette
+    unique_types = list(df["exam_type"].unique())
     exam_colors = alt.Scale(
-        domain=["FUVEST", "ENEM", "UNICAMP", "ITA/IME", "SAT", "General"],
-        range=["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#6b7280"],
+        domain=unique_types,
+        range=Colors.CHART_PALETTE[: len(unique_types)],
     )
 
     # Line chart
@@ -388,6 +389,68 @@ def chart_mock_exam_trajectory(
     )
 
     final_chart = line + target_line
+    return _configure_chart_style(final_chart)
+
+
+def chart_scaled_score_trajectory(
+    trajectory_data: List[Dict[str, Any]],
+    score_label: str = "Score",
+    target_score: Optional[float] = None,
+    max_score: float = 1000,
+) -> Optional[alt.Chart]:
+    """
+    Create a line chart for TRI (ENEM) or scaled (SAT) score trajectory.
+
+    Args:
+        trajectory_data: List of dicts with date, score, exam_name, attempt_number
+        score_label: Label for the Y axis (e.g., "TRI Score", "Scaled Score")
+        target_score: Optional target line value
+        max_score: Maximum possible score for Y-axis domain
+
+    Returns:
+        Line chart or None if no data
+    """
+    if not trajectory_data:
+        return None
+
+    df = pd.DataFrame(trajectory_data)
+    df["date_parsed"] = pd.to_datetime(df["date"], format="%d-%m-%Y", errors="coerce")
+    df = df.sort_values("date_parsed")
+
+    line = (
+        alt.Chart(df)
+        .mark_line(
+            point=alt.OverlayMarkDef(size=100, filled=True),
+            strokeWidth=3,
+            color=Colors.CHART_PALETTE[0],
+        )
+        .encode(
+            x=alt.X("date_parsed:T", title="Date"),
+            y=alt.Y(
+                "score:Q",
+                title=score_label,
+                scale=alt.Scale(domain=[0, max_score]),
+            ),
+            tooltip=[
+                alt.Tooltip("exam_name:N", title="Exam"),
+                alt.Tooltip("date:N", title="Date"),
+                alt.Tooltip("score:Q", title=score_label, format=".0f"),
+                alt.Tooltip("attempt_number:Q", title="Attempt #"),
+            ],
+        )
+        .properties(height=300, title=f"{score_label} Trajectory")
+    )
+
+    if target_score:
+        target_line = (
+            alt.Chart(pd.DataFrame({"target": [target_score]}))
+            .mark_rule(color="#10b981", strokeDash=[8, 4], opacity=0.6, size=2)
+            .encode(y="target:Q")
+        )
+        final_chart = line + target_line
+    else:
+        final_chart = line
+
     return _configure_chart_style(final_chart)
 
 
@@ -564,7 +627,11 @@ def chart_section_comparison(
         .encode(
             x=alt.X("section:N", title="Section"),
             y=alt.Y("percentage:Q", title="Score %", scale=alt.Scale(domain=[0, 100])),
-            color=alt.Color("exam_name:N", legend=alt.Legend(title="Exam")),
+            color=alt.Color(
+                "exam_name:N",
+                scale=alt.Scale(range=Colors.CHART_PALETTE),
+                legend=alt.Legend(title="Exam"),
+            ),
             xOffset="exam_name:N",
             tooltip=[
                 alt.Tooltip("exam_name:N", title="Exam"),
@@ -612,7 +679,11 @@ def chart_section_trends(
         .encode(
             x=alt.X("date_parsed:T", title="Date"),
             y=alt.Y("percentage:Q", title="Score %", scale=alt.Scale(domain=[0, 100])),
-            color=alt.Color("section:N", legend=alt.Legend(title="Section")),
+            color=alt.Color(
+                "section:N",
+                scale=alt.Scale(range=Colors.CHART_PALETTE),
+                legend=alt.Legend(title="Section"),
+            ),
             tooltip=[
                 alt.Tooltip("section:N", title="Section"),
                 alt.Tooltip("date:N", title="Date"),
@@ -668,6 +739,77 @@ def chart_daily_questions(sessions: List[Dict[str, Any]]) -> Optional[alt.Chart]
             tooltip=["Date:N", "Questions:Q"],
         )
         .properties(height=200)
+    )
+
+    return _configure_chart_style(chart)
+
+
+def chart_exam_type_distribution(type_data: Dict[str, int]) -> Optional[alt.Chart]:
+    """
+    Create a bar chart showing error distribution by exam type.
+
+    Args:
+        type_data: Dictionary mapping exam type to error count
+
+    Returns:
+        Altair chart or None if no data
+    """
+    if not type_data:
+        return None
+
+    # Convert dict to DataFrame
+    df = pd.DataFrame(list(type_data.items()), columns=["Exam Type", "Count"])
+
+    # Sort by count descending
+    df = df.sort_values("Count", ascending=False)
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("Exam Type:N", title=None, sort="-y"),
+            y=alt.Y("Count:Q", title="Errors"),
+            color=alt.Color(
+                "Exam Type:N", scale=alt.Scale(range=Colors.CHART_PALETTE), legend=None
+            ),
+            tooltip=["Exam Type:N", "Count:Q"],
+        )
+        .properties(height=250, title="Errors by Exam Type")
+    )
+
+    return _configure_chart_style(chart)
+
+
+def chart_pace_by_subject(pace_data: List[Dict[str, Any]]) -> Optional[alt.Chart]:
+    """
+    Create a bar chart showing average pace (minutes/question) by subject.
+
+    Args:
+        pace_data: List of dicts with subject and pace
+
+    Returns:
+        Altair chart or None if no data
+    """
+    if not pace_data:
+        return None
+
+    df = pd.DataFrame(pace_data)
+
+    chart = (
+        alt.Chart(df)
+        .mark_bar()
+        .encode(
+            x=alt.X("subject:N", title=None, sort="-y"),
+            y=alt.Y("pace:Q", title="Minutes per Question"),
+            color=alt.Color(
+                "subject:N", scale=alt.Scale(range=Colors.CHART_PALETTE), legend=None
+            ),
+            tooltip=[
+                alt.Tooltip("subject:N", title="Subject"),
+                alt.Tooltip("pace:Q", title="Min/Question", format=".2f"),
+            ],
+        )
+        .properties(height=250, title="Avg Time per Question")
     )
 
     return _configure_chart_style(chart)

@@ -777,6 +777,49 @@ def get_section_trend_data(
     return sorted_data
 
 
+def get_scaled_score_trajectory(
+    mock_exams: List[Dict[str, Any]], exam_type: str
+) -> List[Dict[str, Any]]:
+    """
+    Extract TRI (ENEM) or scaled (SAT) score trajectory from breakdown_json.
+
+    Args:
+        mock_exams: List of mock exam records
+        exam_type: "ENEM" or "SAT"
+
+    Returns:
+        List of dicts with date, score, exam_name sorted by date.
+        Empty list if no scores found.
+    """
+    score_key = "tri_score" if exam_type == "ENEM" else "scaled_score"
+    filtered = [e for e in mock_exams if e.get("exam_type") == exam_type]
+
+    trajectory = []
+    for exam in filtered:
+        breakdown = exam.get("breakdown_json") or {}
+        if not isinstance(breakdown, dict):
+            continue
+
+        score = breakdown.get(score_key)
+        if score and score > 0:
+            trajectory.append(
+                {
+                    "exam_name": exam.get("exam_name", "Untitled"),
+                    "date": exam.get("date", ""),
+                    "score": float(score),
+                }
+            )
+
+    # Sort by date
+    trajectory.sort(key=lambda x: parse_date_str(x.get("date", "")) or datetime.min)
+
+    # Add attempt numbers
+    for i, entry in enumerate(trajectory):
+        entry["attempt_number"] = i + 1
+
+    return trajectory
+
+
 def get_mock_exam_error_summary(
     errors: List[Dict[str, Any]],
     mock_exam_id: str,
@@ -816,3 +859,55 @@ def get_mock_exam_error_summary(
             grouped[subject].append(error)
 
     return grouped
+
+
+def count_by_field(data: List[Dict[str, Any]], field: str) -> Dict[str, int]:
+    """
+    Count occurrences of values in a specific field.
+
+    Args:
+        data: List of records
+        field: Field name to count by
+
+    Returns:
+        Dictionary mapping values to counts
+    """
+    counts: Dict[str, int] = {}
+    for item in data:
+        val = item.get(field, "Unknown") or "Unknown"
+        counts[val] = counts.get(val, 0) + 1
+    return counts
+
+
+def get_pace_by_subject(sessions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Calculate average pace (minutes per question) by subject.
+
+    Args:
+        sessions: List of study sessions
+
+    Returns:
+        List of dicts with subject, pace, and validation info
+    """
+    subject_stats: Dict[str, Dict[str, float]] = {}
+
+    for s in sessions:
+        subj = s.get("subject", "Unknown") or "Unknown"
+        duration = s.get("duration_minutes", 0) or 0
+        questions = s.get("total_questions", 0) or 0
+
+        if questions > 0:
+            if subj not in subject_stats:
+                subject_stats[subj] = {"total_min": 0.0, "total_q": 0.0}
+            subject_stats[subj]["total_min"] += float(duration)
+            subject_stats[subj]["total_q"] += float(questions)
+
+    results = []
+    for subj, stats in subject_stats.items():
+        if stats["total_q"] > 0:
+            pace = stats["total_min"] / stats["total_q"]
+            results.append({"subject": subj, "pace": round(pace, 2)})
+
+    # Sort by pace (descending)
+    results.sort(key=lambda x: x["pace"], reverse=True)
+    return results
