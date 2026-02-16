@@ -645,6 +645,13 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
         _clear_mock_exam_state()
         return
 
+    # Show success message if error was just logged
+    if st.session_state.get("mock_error_just_logged"):
+        section_label = st.session_state.get("mock_error_logged_section", "")
+        st.success(f"Error logged for {section_label}!")
+        st.session_state.pop("mock_error_just_logged", None)
+        st.session_state.pop("mock_error_logged_section", None)
+
     # Show sections with errors
     for key, sec in sections.items():
         sec_data = breakdown.get(key, {})
@@ -656,19 +663,24 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
         if wrong <= 0:
             continue
 
-        with st.expander(f"{sec['label']} - {wrong} error(s)", expanded=False):
-            # Initialize error counter for this section if not exists
-            counter_key = f"logged_errors_{key}"
-            if counter_key not in st.session_state:
-                st.session_state[counter_key] = 0
+        # Initialize error counter for this section if not exists
+        counter_key = f"logged_errors_{key}"
+        if counter_key not in st.session_state:
+            st.session_state[counter_key] = 0
 
-            # Check if all errors for this section are logged
-            if st.session_state[counter_key] >= wrong:
+        # Check if all errors for this section are logged
+        if st.session_state[counter_key] >= wrong:
+            with st.expander(
+                f"{sec['label']} - {wrong} error(s) ✓ All logged", expanded=False
+            ):
                 st.info("All errors for this section have been logged.")
-                continue
+            continue
 
-            # Show progress
-            st.caption(f"Logged {st.session_state[counter_key]} of {wrong} errors")
+        # Show progress in expander title and inside
+        with st.expander(
+            f"{sec['label']} - {st.session_state[counter_key]}/{wrong} errors logged",
+            expanded=True,
+        ):
 
             with st.form(f"mock_error_{key}"):
                 # For ENEM, show subject dropdown; for SAT, use section subject directly
@@ -724,15 +736,21 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                         )
                         if success:
                             st.session_state[counter_key] += 1
-                            st.success(f"Error logged for {sec['label']}!")
+                            st.session_state["mock_error_just_logged"] = True
+                            st.session_state["mock_error_logged_section"] = sec["label"]
                             st.rerun()
 
     # Check if all errors have been logged
-    total_errors = sum(
-        max(sec_data.get("max", 0) - sec_data.get("score", 0), 0)
-        for key, sec in sections.items()
-        if breakdown.get(key, {}) and not sec["is_essay"]
-    )
+    total_errors = 0
+    for key, sec in sections.items():
+        if sec["is_essay"]:
+            continue
+        sec_data = breakdown.get(key, {})
+        if isinstance(sec_data, dict):
+            val = sec_data.get("score", 0)
+            mx = sec_data.get("max", 0)
+            total_errors += max(mx - val, 0)
+    
     total_logged = sum(
         st.session_state.get(f"logged_errors_{key}", 0) for key in sections.keys()
     )
