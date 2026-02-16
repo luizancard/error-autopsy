@@ -361,3 +361,118 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
     st.markdown("</div>", unsafe_allow_html=True)
 
     return edited_df
+
+
+def render_editable_sessions_table(
+    data: List[Dict[str, Any]]
+) -> Optional[pd.DataFrame]:
+    """
+    Render an editable data table for study sessions.
+
+    Args:
+        data: List of study session records to display.
+
+    Returns:
+        Edited DataFrame if changes were made, None otherwise.
+    """
+    if not data:
+        st.info("No study sessions found. Log some sessions to see them here!")
+        return None
+
+    # Convert to DataFrame for editing
+    df = pd.DataFrame(data)
+
+    # Reorder columns for better UX
+    column_order = [
+        "id",
+        "exam_type",
+        "subject",
+        "topics_covered",
+        "questions_total",
+        "questions_correct",
+        "questions_wrong",
+        "time_spent_min",
+        "date",
+    ]
+    # Only use columns that exist in the DataFrame
+    column_order = [col for col in column_order if col in df.columns]
+    df = df[column_order]
+
+    # Rename columns for display
+    display_names = {
+        "id": "ID",
+        "exam_type": "Exam Type",
+        "subject": "Subject",
+        "topics_covered": "Topics Covered",
+        "questions_total": "Total Questions",
+        "questions_correct": "Correct",
+        "questions_wrong": "Wrong",
+        "time_spent_min": "Time (min)",
+        "date": "Date",
+    }
+    df.columns = [display_names.get(col, col) for col in df.columns]
+
+    # Configure column settings
+    column_config = {
+        "ID": st.column_config.TextColumn(
+            "ID",
+            width="small",
+            disabled=True,
+        ),
+        "Exam Type": st.column_config.TextColumn(
+            "Exam Type",
+            width="medium",
+            required=True,
+        ),
+        "Subject": st.column_config.TextColumn(
+            "Subject",
+            width="medium",
+            required=True,
+        ),
+        "Topics Covered": st.column_config.TextColumn(
+            "Topics Covered",
+            width="large",
+        ),
+        "Total Questions": st.column_config.NumberColumn(
+            "Total Questions",
+            width="small",
+            min_value=0,
+            required=True,
+        ),
+        "Correct": st.column_config.NumberColumn(
+            "Correct",
+            width="small",
+            min_value=0,
+        ),
+        "Wrong": st.column_config.NumberColumn(
+            "Wrong",
+            width="small",
+            min_value=0,
+        ),
+        "Time (min)": st.column_config.NumberColumn(
+            "Time (min)",
+            width="small",
+            min_value=0,
+        ),
+        "Date": st.column_config.TextColumn(
+            "Date",
+            width="medium",
+            help="Format: DD-MM-YYYY",
+        ),
+    }
+
+    # Render editable data table
+    st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
+
+    edited_df = st.data_editor(
+        df,
+        column_config=column_config,
+        use_container_width=True,
+        num_rows="fixed",
+        hide_index=True,
+        key="sessions_data_editor",
+    )
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    return edited_df

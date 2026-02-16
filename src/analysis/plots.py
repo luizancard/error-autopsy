@@ -60,10 +60,6 @@ def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart
         columns=["Subject", "Errors"],
     ).sort_values("Errors", ascending=False)
 
-    # Add color index for each subject
-    df["color_index"] = range(len(df))
-    df["color"] = df["color_index"].apply(_get_color_for_category)
-
     select_subject = alt.selection_point(
         name="selected_subjects", fields=["Subject"], on="click"
     )
@@ -75,7 +71,7 @@ def chart_subjects(subject_data: Optional[Dict[str, int]]) -> Optional[alt.Chart
             x=alt.X("Subject:N", title=None),
             y=alt.Y("Errors:Q", title=None),
             color=alt.Color(
-                "Subject:N", scale=alt.Scale(scheme="tableau20"), legend=None
+                "Subject:N", scale=alt.Scale(scheme="blues"), legend=None
             ),
             opacity=alt.condition(select_subject, alt.value(1), alt.value(0.3)),
         )
@@ -135,9 +131,6 @@ def chart_timeline(month_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
     )
     df = pd.DataFrame(sorted_months, columns=["Month", "Errors"])
 
-    # Add color index for each month
-    df["colors"] = range(len(df))
-
     chart = (
         alt.Chart(df)
         .mark_bar()
@@ -145,7 +138,7 @@ def chart_timeline(month_data: Optional[Dict[str, int]]) -> Optional[alt.Chart]:
             x=alt.X("Month:N", title=None, sort=None),
             y=alt.Y("Errors:Q", title=None),
             color=alt.Color(
-                "Month:N", scale=alt.Scale(scheme="category10"), legend=None
+                "Month:N", scale=alt.Scale(scheme="purples"), legend=None
             ),
         )
         .properties(height=ChartConfig.HEIGHT_DEFAULT)

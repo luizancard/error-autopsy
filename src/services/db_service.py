@@ -163,6 +163,49 @@ def update_errors(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
 # =============================================================================
 
 
+def update_sessions(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
+    """
+    Update multiple study session records.
+
+    Args:
+        user_id: User UUID
+        updated_records: List of session dictionaries with updated values
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not supabase:
+        return False
+
+    try:
+        clean_records = []
+        for rec in updated_records:
+            if not rec.get("ID"):
+                continue
+
+            # Mapping display names back to database columns
+            clean_rec = {
+                "id": rec["ID"],
+                "user_id": user_id,
+                "exam_type": rec.get("Exam Type", "General"),
+                "subject": rec.get("Subject", ""),
+                "topics_covered": rec.get("Topics Covered", ""),
+                "questions_total": int(rec.get("Total Questions", 0)),
+                "questions_correct": int(rec.get("Correct", 0)),
+                "questions_wrong": int(rec.get("Wrong", 0)),
+                "time_spent_min": int(rec.get("Time (min)", 0)),
+                "date": _format_date_iso(rec.get("Date", date.today())),
+            }
+            clean_records.append(clean_rec)
+
+        if clean_records:
+            supabase.table("study_sessions").upsert(clean_records).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error updating sessions: {e}")
+        return False
+
+
 def create_study_session(
     user_id: str,
     exam_type: str,

@@ -233,12 +233,12 @@ def _render_error_breakdown(
 
 
 def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
-    """Render expandable exam history list."""
+    """Render expandable exam history list with edit/delete capabilities."""
     st.markdown(
         "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
         'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Exam History</h3>'
         '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-        "All logged mock exams</p>",
+        "All logged mock exams (click to view details, edit, or delete)</p>",
         unsafe_allow_html=True,
     )
 
@@ -247,6 +247,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
         date_str = exam.get("date", "")
         pct = exam.get("score_percentage", 0)
         exam_type = exam.get("exam_type", "General")
+        exam_id = exam.get("id", "")
 
         label = f"{name} | {date_str} | {pct:.1f}%"
 
@@ -291,3 +292,81 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
             notes = exam.get("notes")
             if notes:
                 st.markdown(f"**Notes:** {notes}")
+            
+            # Edit/Delete buttons
+            st.divider()
+            col_edit, col_delete = st.columns(2)
+            
+            with col_edit:
+                if st.button("Edit Exam", key=f"edit_{exam_id}", use_container_width=True):
+                    st.session_state[f"editing_{exam_id}"] = True
+                    st.rerun()
+            
+            with col_delete:
+                if st.button("Delete Exam", key=f"delete_{exam_id}", use_container_width=True, type="secondary"):
+                    st.session_state[f"confirm_delete_{exam_id}"] = True
+                    st.rerun()
+            
+            # Show edit form if editing
+            if st.session_state.get(f"editing_{exam_id}", False):
+                _render_edit_form(exam)
+            
+            # Show delete confirmation
+            if st.session_state.get(f"confirm_delete_{exam_id}", False):
+                st.warning("Are you sure you want to delete this exam? This action cannot be undone.")
+                col_yes, col_no = st.columns(2)
+                
+                with col_yes:
+                    if st.button("Yes, Delete", key=f"confirm_yes_{exam_id}", use_container_width=True, type="primary"):
+                        from src.services import db_service as db
+                        user_id = st.session_state.get("user_id", "")
+                        if db.delete_mock_exam(exam_id, user_id):
+                            st.success("Exam deleted successfully!")
+                            st.session_state.pop(f"confirm_delete_{exam_id}", None)
+                            st.rerun()
+                        else:
+                            st.error("Failed to delete exam. Please try again.")
+                
+                with col_no:
+                    if st.button("Cancel", key=f"confirm_no_{exam_id}", use_container_width=True):
+                        st.session_state.pop(f"confirm_delete_{exam_id}", None)
+                        st.rerun()
+
+
+def _render_edit_form(exam: Dict[str, Any]) -> None:
+    """Render inline edit form for a mock exam."""
+    exam_id = exam.get("id", "")
+    
+    st.markdown("**Edit Exam Details:**")
+    
+    with st.form(f"edit_form_{exam_id}"):
+        new_name = st.text_input("Exam Name", value=exam.get("exam_name", ""))
+        new_notes = st.text_area("Notes", value=exam.get("notes", ""))
+        
+        col_submit, col_cancel = st.columns(2)
+        
+        with col_submit:
+            if st.form_submit_button("Save Changes", use_container_width=True, type="primary"):
+                from src.services import db_service as db
+                user_id = st.session_state.get("user_id", "")
+                
+                updates = {
+                    "exam_name": new_name,
+                    "notes": new_notes,
+                }
+                
+                if db.update_mock_exam(
+                    exam_id=exam_id,
+                    user_id=user_id,
+                    updates=updates,
+                ):
+                    st.success("Changes saved successfully!")
+                    st.session_state.pop(f"editing_{exam_id}", None)
+                    st.rerun()
+                else:
+                    st.error("Failed to save changes. Please try again.")
+        
+        with col_cancel:
+            if st.form_submit_button("Cancel", use_container_width=True):
+                st.session_state.pop(f"editing_{exam_id}", None)
+                st.rerun()

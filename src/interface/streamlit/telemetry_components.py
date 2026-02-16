@@ -500,11 +500,28 @@ def render_simulado_logger(user_id: str) -> None:
                     st.session_state["simulado_form_submitted"] = True
                     st.session_state["simulado_exam_id"] = exam_id
 
+                    # Store form state before clearing for error logging
+                    stored_form_state = form_state.copy()
+                    stored_section_values = form_state["section_values"].copy()
+
+                    # Clear form after successful submission
+                    st.session_state.mock_exam_form = {
+                        "exam_type": "General",
+                        "exam_date": date.today(),
+                        "exam_name": "",
+                        "section_values": {},
+                        "tri_score": 0.0,
+                        "scaled_score": 0,
+                        "total_score": 0.0,
+                        "max_possible_score": 100.0,
+                        "notes": "",
+                    }
+
                     # Check if any section had errors for error logging prompt
                     has_errors = False
                     if sections:
                         for key, sec in sections.items():
-                            val = form_state["section_values"].get(key, 0)
+                            val = stored_section_values.get(key, 0)
                             mx = sec["max"]
                             if not sec["is_essay"] and val < mx:
                                 has_errors = True
@@ -512,10 +529,13 @@ def render_simulado_logger(user_id: str) -> None:
 
                     if has_errors:
                         st.session_state["mock_exam_id"] = exam_id
-                        st.session_state["mock_exam_type"] = form_state["exam_type"]
+                        st.session_state["mock_exam_type"] = stored_form_state["exam_type"]
                         st.session_state["mock_exam_breakdown"] = breakdown_json
-                        st.session_state["mock_exam_date"] = form_state["exam_date"]
+                        st.session_state["mock_exam_date"] = stored_form_state["exam_date"]
                         st.session_state["show_mock_error_prompt"] = True
+                    
+                    # Rerun to clear form visually
+                    st.rerun()
                 else:
                     st.error("Failed to log exam. Please try again.")
 
@@ -532,6 +552,7 @@ def render_simulado_logger(user_id: str) -> None:
                 "max_possible_score": 100.0,
                 "notes": "",
             }
+            st.rerun()
 
     # Show success message after form submission
     if st.session_state.get("simulado_form_submitted", False):
@@ -632,7 +653,32 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             continue
 
         with st.expander(f"{sec['label']} - {wrong} error(s)", expanded=False):
+            # Initialize error counter for this section if not exists
+            counter_key = f"logged_errors_{key}"
+            if counter_key not in st.session_state:
+                st.session_state[counter_key] = 0
+            
+            # Check if all errors for this section are logged
+            if st.session_state[counter_key] >= wrong:
+                st.info("All errors for this section have been logged.")
+                continue
+            
+            # Show progress
+            st.caption(f"Logged {st.session_state[counter_key]} of {wrong} errors")
+            
             with st.form(f"mock_error_{key}"):
+                # For ENEM, show subject dropdown; for SAT, use section subject directly
+                if exam_type == "ENEM":
+                    subject = st.selectbox(
+                        "Subject *",
+                        options=get_subjects_for_exam(exam_type),
+                        help="Select the specific subject for this error",
+                        key=f"mock_subject_{key}",
+                    )
+                else:
+                    subject = sec["subject"]
+                    st.caption(f"Subject: {subject}")
+                
                 topic = st.text_input(
                     "Topic *",
                     help="Specific topic of the error",
@@ -663,7 +709,7 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                     else:
                         success = db.log_error_with_session(
                             user_id=user_id,
-                            subject=sec["subject"],
+                            subject=subject,
                             topic=topic.strip(),
                             error_type=error_type,
                             description=description,
@@ -673,7 +719,23 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                             mock_exam_id=mock_exam_id,
                         )
                         if success:
-                            st.success(f"✅ Error logged for {sec['label']}!")
+                            st.session_state[counter_key] += 1
+                            st.success(f"Error logged for {sec['label']}!")
+                            st.rerun()
+
+    # Check if all errors have been logged
+    total_errors = sum(
+        max(sec_data.get("max", 0) - sec_data.get("score", 0), 0)
+        for key, sec in sections.items()
+        if breakdown.get(key, {}) and not sec["is_essay"]
+    )
+    total_logged = sum(
+        st.session_state.get(f"logged_errors_{key}", 0)
+        for key in sections.keys()
+    )
+    
+    if total_logged >= total_errors and total_errors > 0:
+        st.success("All errors have been logged! Click 'Done' below to finish.")
 
     if st.button("Done Logging Errors", key="mock_done"):
         _clear_mock_exam_state()
@@ -681,6 +743,12 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
 
 def _clear_mock_exam_state() -> None:
     """Remove all mock-exam error logging state."""
+    # Clear error counters
+    keys_to_remove = [k for k in st.session_state.keys() if k.startswith("logged_errors_")]
+    for k in keys_to_remove:
+        st.session_state.pop(k, None)
+    
+    # Clear mock exam state
     for k in [
         "mock_exam_id",
         "mock_exam_type",

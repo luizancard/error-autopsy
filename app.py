@@ -241,28 +241,54 @@ def render_history() -> None:
 
     st.divider()
 
-    # Existing history functionality
-    hist.render_filter_popup(errors)
-    hist.render_active_filters()
-    filters = st.session_state.history_filters
-    filtered_data = hist.apply_filters(errors, filters)
+    # Tabbed view for Errors and Study Sessions
+    tab1, tab2 = st.tabs(["📝 Errors History", "📚 Study Sessions"])
 
-    st.markdown(
-        f'<p style="color:#64748b;font-size:0.95rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(errors)}</strong> records</p>',
-        unsafe_allow_html=True,
-    )
+    with tab1:
+        # Existing history functionality
+        hist.render_filter_popup(errors)
+        hist.render_active_filters()
+        filters = st.session_state.history_filters
+        filtered_data = hist.apply_filters(errors, filters)
 
-    if filtered_data:
-        edited_df = hist.render_editable_table(filtered_data)
-        if edited_df is not None and st.button(
-            "Save Changes", use_container_width=True, type="primary"
-        ):
-            updated_records = cast(List[Dict[str, Any]], edited_df.to_dict("records"))
-            if db.update_errors(user_id, updated_records):
-                st.success("Changes saved successfully!")
-                st.rerun()
-    else:
-        st.info("No records match your filters.")
+        st.markdown(
+            f'<p style="color:#64748b;font-size:0.95rem;">Showing <strong>{len(filtered_data)}</strong> of <strong>{len(errors)}</strong> records</p>',
+            unsafe_allow_html=True,
+        )
+
+        if filtered_data:
+            edited_df = hist.render_editable_table(filtered_data)
+            if edited_df is not None and st.button(
+                "Save Changes", use_container_width=True, type="primary", key="save_errors"
+            ):
+                updated_records = cast(
+                    List[Dict[str, Any]], edited_df.to_dict("records")
+                )
+                if db.update_errors(user_id, updated_records):
+                    st.success("Changes saved successfully!")
+                    st.rerun()
+        else:
+            st.info("No records match your filters.")
+
+    with tab2:
+        st.markdown(
+            f'<p style="color:#64748b;font-size:0.95rem;">Total <strong>{len(sessions)}</strong> study sessions</p>',
+            unsafe_allow_html=True,
+        )
+
+        if sessions:
+            edited_sessions_df = hist.render_editable_sessions_table(sessions)
+            if edited_sessions_df is not None and st.button(
+                "Save Changes", use_container_width=True, type="primary", key="save_sessions"
+            ):
+                updated_sessions = cast(
+                    List[Dict[str, Any]], edited_sessions_df.to_dict("records")
+                )
+                if db.update_sessions(user_id, updated_sessions):
+                    st.success("Changes saved successfully!")
+                    st.rerun()
+        else:
+            st.info("No study sessions found. Log some sessions to see them here!")
 
 
 # Sidebar navigation
