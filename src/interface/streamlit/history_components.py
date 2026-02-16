@@ -277,6 +277,10 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
     # Convert to DataFrame for editing
     df = pd.DataFrame(data)
 
+    # Ensure difficulty column exists (backward compatibility)
+    if "difficulty" not in df.columns:
+        df["difficulty"] = "Medium"
+
     # Reorder columns for better UX
     column_order = [
         "id",
@@ -287,6 +291,8 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
         "description",
         "date",
     ]
+    # Only use columns that exist in the DataFrame
+    column_order = [col for col in column_order if col in df.columns]
     df = df[column_order]
 
     # Rename columns for display

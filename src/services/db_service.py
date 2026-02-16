@@ -74,6 +74,10 @@ def load_data(user_id: str) -> List[Dict[str, Any]]:
             # Agora o linter sabe que 'item' é um Dict, então .copy() é válido
             clean_item = item.copy()
 
+            # Ensure difficulty field exists (backward compatibility)
+            if "difficulty" not in clean_item:
+                clean_item["difficulty"] = "Medium"
+
             if clean_item.get("date"):
                 try:
                     dt = datetime.strptime(str(clean_item["date"]), DATE_FORMAT_ISO)

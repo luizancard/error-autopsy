@@ -29,7 +29,7 @@ def render_session_logger(user_id: str) -> None:
     st.subheader("Log a Study Session")
     st.markdown("Track a batch of questions you completed in a single study block.")
 
-    with st.form("session_form", clear_on_submit=True):
+    with st.form("session_form"):
         col1, col2 = st.columns(2)
 
         with col1:
@@ -159,8 +159,6 @@ def render_session_logger(user_id: str) -> None:
             )
 
             if session_id:
-                st.success("Session logged successfully!")
-
                 # Store session info in session state for potential error logging
                 st.session_state["last_session_id"] = session_id
                 st.session_state["last_session_subject"] = subject
@@ -168,14 +166,24 @@ def render_session_logger(user_id: str) -> None:
                 st.session_state["last_session_errors"] = (
                     total_questions - correct_count
                 )
+                st.session_state["session_form_submitted"] = True
 
                 # Ask if they want to log errors
                 if correct_count < total_questions:
                     st.session_state["show_error_prompt"] = True
-
-                st.rerun()
             else:
                 st.error("Failed to log session. Please try again.")
+
+    # Show success message after form submission
+    if st.session_state.get("session_form_submitted", False):
+        errors_count = st.session_state.get("last_session_errors", 0)
+        st.success(f"✅ Study session logged successfully! You answered {errors_count} questions incorrectly.")
+        
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("Clear Form", use_container_width=True, key="session_clear"):
+                st.session_state["session_form_submitted"] = False
+                st.rerun()
 
     # Show error logging prompt if triggered
     if st.session_state.get("show_error_prompt", False):
@@ -291,7 +299,7 @@ def render_simulado_logger(user_id: str) -> None:
     st.subheader("Log a Mock Exam (Simulado)")
     st.markdown("Record the results of a full practice exam.")
 
-    with st.form("simulado_form", clear_on_submit=True):
+    with st.form("simulado_form"):
         # Exam identification
         col1, col2 = st.columns(2)
 
@@ -471,8 +479,9 @@ def render_simulado_logger(user_id: str) -> None:
                 )
 
                 if exam_id:
-                    st.success("Mock exam logged successfully!")
-
+                    st.session_state["simulado_form_submitted"] = True
+                    st.session_state["simulado_exam_id"] = exam_id
+                    
                     # Check if any section had errors for error logging prompt
                     has_errors = False
                     if sections:
@@ -491,10 +500,19 @@ def render_simulado_logger(user_id: str) -> None:
                         st.session_state["mock_exam_breakdown"] = breakdown_json
                         st.session_state["mock_exam_date"] = exam_date
                         st.session_state["show_mock_error_prompt"] = True
-
-                    st.rerun()
                 else:
                     st.error("Failed to log exam. Please try again.")
+
+    # Show success message after form submission
+    if st.session_state.get("simulado_form_submitted", False):
+        st.success(f"✅ Mock exam logged successfully! You can now log errors from this exam.")
+        
+        col1, col2 = st.columns([3, 1])
+        with col2:
+            if st.button("Clear Form", use_container_width=True):
+                st.session_state["simulado_form_submitted"] = False
+                st.session_state["simulado_exam_id"] = None
+                st.rerun()
 
     # Show error logging prompt after mock exam
     if st.session_state.get("show_mock_error_prompt", False):
