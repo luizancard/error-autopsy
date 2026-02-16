@@ -306,16 +306,12 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
         "Date",
     ]
 
-    # Add delete checkbox column
-    df[\"Delete\"] = False
-
     # Configure column settings
     column_config = {
-        \"ID\": st.column_config.TextColumn(
-            \"ID\",
-            width=\"small\",
-            disabled=True,
-            hidden=True,  # Hide ID by default
+        "ID": st.column_config.TextColumn(
+            "ID",
+            width="small",
+            disabled=True,  # ID should not be editable
         ),
         "Subject": st.column_config.TextColumn(
             "Subject",
@@ -349,13 +345,6 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
             help="Format: DD-MM-YYYY",
         ),
     }
-
-    # Add delete checkbox column configuration
-    column_config["Delete"] = st.column_config.CheckboxColumn(
-        "Delete",
-        width="small",
-        default=False,
-    )
 
     # Render editable data table
     st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
@@ -402,11 +391,11 @@ def render_editable_sessions_table(
         "pace_per_question": "avg_time_per_question",
         "duration_minutes": "time_spent_min",
     }
-    
+
     for db_col, standard_col in column_mapping.items():
         if db_col in df.columns and standard_col not in df.columns:
             df[standard_col] = df[db_col]
-    
+
     # Ensure columns exist
     if "questions_total" not in df.columns and "total_questions" in df.columns:
         df["questions_total"] = df["total_questions"]
@@ -418,7 +407,7 @@ def render_editable_sessions_table(
         df["avg_time_per_question"] = df["pace_per_question"]
     if "time_spent_min" not in df.columns and "duration_minutes" in df.columns:
         df["time_spent_min"] = df["duration_minutes"]
-    
+
     # Calculate metrics if not already present
     if "success_rate" not in df.columns:
         df["success_rate"] = (
@@ -467,7 +456,6 @@ def render_editable_sessions_table(
             "ID",
             width="small",
             disabled=True,
-            hidden=True,  # Hide ID by default
         ),
         "Exam Type": st.column_config.TextColumn(
             "Exam Type",
@@ -520,7 +508,7 @@ def render_editable_sessions_table(
 
     # Add delete checkbox column
     df["Delete"] = False
-    
+
     # Render editable data table
     st.markdown('<div class="data-table-container">', unsafe_allow_html=True)
 
