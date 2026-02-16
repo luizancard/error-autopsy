@@ -306,12 +306,15 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
         "Date",
     ]
 
+    # Add delete checkbox column
+    df["Delete"] = False
+
     # Configure column settings
     column_config = {
         "ID": st.column_config.TextColumn(
             "ID",
             width="small",
-            disabled=True,  # ID should not be editable
+            disabled=True,
         ),
         "Subject": st.column_config.TextColumn(
             "Subject",
@@ -344,6 +347,11 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
             width="medium",
             help="Format: DD-MM-YYYY",
         ),
+        "Delete": st.column_config.CheckboxColumn(
+            "Delete",
+            width="small",
+            default=False,
+        ),
     }
 
     # Render editable data table
@@ -352,8 +360,17 @@ def render_editable_table(data: List[Dict[str, Any]]) -> Optional[pd.DataFrame]:
     edited_df = st.data_editor(
         df,
         column_config=column_config,
+        column_order=[
+            "Subject",
+            "Topic",
+            "Error Type",
+            "Difficulty",
+            "Description",
+            "Date",
+            "Delete",
+        ],
         use_container_width=True,
-        num_rows="fixed",  # Canvas rendering prevents background styling
+        num_rows="fixed",
         hide_index=True,
         key="history_data_editor",
     )

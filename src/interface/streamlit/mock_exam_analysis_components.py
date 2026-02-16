@@ -334,7 +334,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
                     ):
                         from src.services import db_service as db
 
-                        user_id = st.session_state.get("user_id", "")
+                        user_id = st.session_state["user"].id
                         if db.delete_mock_exam(exam_id, user_id):
                             st.success("Exam deleted successfully!")
                             st.session_state.pop(f"confirm_delete_{exam_id}", None)
@@ -442,7 +442,7 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
             ):
                 from src.services import db_service as db
 
-                user_id = st.session_state.get("user_id", "")
+                user_id = st.session_state["user"].id
 
                 updates = {
                     "exam_name": new_name,
