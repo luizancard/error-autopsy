@@ -477,10 +477,10 @@ def chart_activity_heatmap(heatmap_data: List[Dict[str, Any]]) -> Optional[alt.C
     df["day_of_week"] = df["date_parsed"].dt.dayofweek  # 0=Monday, 6=Sunday
     df["month_label"] = df["date_parsed"].dt.strftime("%b %Y")
 
-    # Intensity color scale (GitHub-inspired)
+    # Intensity color scale (purple tones matching dashboard theme)
     intensity_colors = alt.Scale(
         domain=[0, 1, 2, 3, 4],
-        range=["#ebedf0", "#9be9a8", "#40c463", "#30a14e", "#216e39"],
+        range=["#F7ECE1", "#CAC4CE", "#8D86C9", "#8070C5", "#725AC1"],
     )
 
     chart = (

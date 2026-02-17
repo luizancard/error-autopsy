@@ -9,6 +9,7 @@ Provides the main dashboard with:
 All charts respect the time filter.
 """
 
+from datetime import date
 from typing import Any, Dict, List
 
 import streamlit as st
@@ -26,7 +27,9 @@ def render_telemetry_dashboard(
     time_filter: str,
 ) -> None:
     """
-    Render the main dashboard.
+    Render the main dashboard with AI insights and tabbed interface.
+
+    REFACTORED: Added AI insights and organized with tabs for better UX.
 
     Args:
         errors: List of error records
@@ -65,8 +68,6 @@ def render_telemetry_dashboard(
         st.session_state["time_filter"] = selected_filter
         st.rerun()
 
-    st.divider()
-
     # Apply time filtering
     months = TimeFilter.MONTHS_MAP.get(selected_filter)
     filtered_errors = mt.filter_data_by_range(errors, months)
@@ -82,15 +83,21 @@ def render_telemetry_dashboard(
         ]
 
     # ======================================================================
+    # AI INSIGHTS - TOP OF DASHBOARD
+    # ======================================================================
+
+    _render_ai_insights(filtered_errors)
+
+    st.divider()
+
+    # ======================================================================
     # STAT CARDS ROW
     # ======================================================================
 
     _render_stat_cards(filtered_errors, filtered_sessions)
 
-    st.divider()
-
     # ======================================================================
-    # CHARTS SECTION
+    # TABBED INTERFACE
     # ======================================================================
 
     if not filtered_errors:
@@ -100,110 +107,221 @@ def render_telemetry_dashboard(
         )
         return
 
-    # --- Subject Distribution (with drill-down to topics) ---
-    _render_subject_section(filtered_errors, selected_filter)
+    tab1, tab2, tab3 = st.tabs(["Overview", "Analytics", "Timeline"])
 
-    st.markdown("---")
+    # --- TAB 1: OVERVIEW ---
+    with tab1:
+        st.markdown("### Quick Overview")
 
-    # --- Monthly Timeline + Difficulty side by side ---
-    col_timeline, col_difficulty = st.columns(2)
-
-    with col_timeline:
-        st.markdown(
-            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Errors Over Time</h3>'
-            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-            "Monthly error count</p>",
-            unsafe_allow_html=True,
+        # Activity Heatmap
+        st.markdown("#### Activity Heatmap")
+        st.caption("Daily error logging activity (contribution-style)")
+        heatmap_data = mt.get_activity_heatmap_data(
+            filtered_sessions, filtered_errors, mock_exams, days=90
         )
-        month_data = mt.aggregate_by_month_all(filtered_errors)
-        chart = pt.chart_timeline(month_data)
-        if chart:
-            st.altair_chart(chart, width="stretch")
+        heatmap_chart = pt.chart_activity_heatmap(heatmap_data)
+        if heatmap_chart:
+            st.altair_chart(heatmap_chart, use_container_width=True)
         else:
-            st.info("Not enough data for a timeline yet.")
+            st.info("Not enough data for heatmap yet.")
 
-    with col_difficulty:
-        st.markdown(
-            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Difficulty Analysis</h3>'
-            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-            "Errors by exercise difficulty</p>",
-            unsafe_allow_html=True,
-        )
-        difficulty_data = mt.count_difficulties(filtered_errors)
-        chart = pt.chart_difficulties(difficulty_data)
-        if chart:
-            st.altair_chart(chart, width="stretch")
+        st.divider()
+
+        # Weakest Subjects
+        st.markdown("#### Weakest Subjects")
+        st.caption("Subjects with the most errors")
+        subject_data = mt.aggregate_by_subject(filtered_errors)
+        if subject_data:
+            # Sort by count descending and take top 5
+            sorted_subjects = sorted(
+                subject_data.items(), key=lambda x: x[1], reverse=True
+            )[:5]
+
+            # Get max count for scaling the bars
+            max_count = sorted_subjects[0][1] if sorted_subjects else 1
+
+            for subject, count in sorted_subjects:
+                col1, col2, col3 = st.columns([3, 2, 1])
+                with col1:
+                    st.markdown(f"**{subject}**")
+                with col2:
+                    # Visual progress bar with purple colors
+                    percentage = (count / max_count) * 100
+                    st.markdown(
+                        f'<div style="background-color: #F7ECE1; border-radius: 10px; height: 20px; overflow: hidden;">'
+                        f'<div style="background: linear-gradient(90deg, #725AC1, #8D86C9); width: {percentage}%; height: 100%; border-radius: 10px;"></div>'
+                        f"</div>",
+                        unsafe_allow_html=True,
+                    )
+                with col3:
+                    st.markdown(
+                        f'<span style="color: #725AC1; font-weight: bold;">{count}</span>',
+                        unsafe_allow_html=True,
+                    )
         else:
-            st.info("No difficulty data yet.")
+            st.info("No subject data yet.")
 
-    st.markdown("---")
+    # --- TAB 2: ANALYTICS ---
+    with tab2:
+        st.markdown("### Detailed Analytics")
 
-    # --- Error Types Pie Chart + Daily Questions Trend ---
-    col_errors, col_questions = st.columns(2)
+        # Subject Distribution (with drill-down)
+        _render_subject_section(filtered_errors, selected_filter)
 
-    with col_errors:
-        st.markdown(
-            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Error Types Distribution</h3>'
-            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-            "Common mistakes by category</p>",
-            unsafe_allow_html=True,
-        )
-        error_type_data = mt.count_error_types(filtered_errors)
-        chart = pt.chart_error_types_pie(error_type_data)
-        if chart:
-            st.altair_chart(chart, width="stretch")
-        else:
-            st.info("No error type data yet.")
+        st.divider()
 
-    with col_questions:
-        st.markdown(
-            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Daily Study Trend</h3>'
-            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-            "Questions answered per day</p>",
-            unsafe_allow_html=True,
-        )
-        chart = pt.chart_daily_questions(filtered_sessions)
-        if chart:
-            st.altair_chart(chart, width="stretch")
+        # Error Types Pie + Difficulty Bar (side by side)
+        col_types, col_diff = st.columns(2)
+
+        with col_types:
+            st.markdown("#### Error Types Distribution")
+            st.caption("Common mistakes by category")
+            error_type_data = mt.count_error_types(filtered_errors)
+            chart = pt.chart_error_types_pie(error_type_data)
+            if chart:
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("No error type data yet.")
+
+        with col_diff:
+            st.markdown("#### Difficulty Analysis")
+            st.caption("Errors by exercise difficulty")
+            difficulty_data = mt.count_difficulties(filtered_errors)
+            chart = pt.chart_difficulties(difficulty_data)
+            if chart:
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("No difficulty data yet.")
+
+        st.divider()
+
+        # Speed vs Accuracy Scatter
+        st.markdown("#### Speed vs Accuracy")
+        st.caption("Session performance correlation")
+        if filtered_sessions:
+            # Create scatter plot data
+            scatter_data = []
+            for session in filtered_sessions:
+                if session.get("pace_per_question") and session.get(
+                    "accuracy_percentage"
+                ):
+                    scatter_data.append(
+                        {
+                            "Pace (min/q)": session["pace_per_question"],
+                            "Accuracy (%)": session["accuracy_percentage"],
+                            "Subject": session.get("subject", "Unknown"),
+                        }
+                    )
+
+            if scatter_data:
+                import altair as alt
+
+                scatter_chart = (
+                    alt.Chart(alt.Data(values=scatter_data))
+                    .mark_circle(size=100, opacity=0.7)
+                    .encode(
+                        x=alt.X("Pace (min/q):Q", scale=alt.Scale(zero=False)),
+                        y=alt.Y("Accuracy (%):Q", scale=alt.Scale(domain=[0, 100])),
+                        color=alt.Color(
+                            "Subject:N", legend=alt.Legend(title="Subject")
+                        ),
+                        tooltip=["Subject:N", "Pace (min/q):Q", "Accuracy (%):Q"],
+                    )
+                    .properties(height=300)
+                )
+                st.altair_chart(scatter_chart, use_container_width=True)
+            else:
+                st.info("Not enough session data for speed vs accuracy analysis.")
         else:
             st.info("No study session data yet.")
 
-    st.markdown("---")
+        st.divider()
 
-    # --- Exam Type Distribution + Pace per Question ---
-    col_exam_type, col_pace = st.columns(2)
+        # Exam Type + Pace by Subject (side by side)
+        col_exam, col_pace = st.columns(2)
 
-    with col_exam_type:
-        st.markdown(
-            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Errors by Exam Type</h3>'
-            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-            "Distribution across exam types</p>",
-            unsafe_allow_html=True,
-        )
-        exam_type_data = mt.count_by_field(filtered_errors, "exam_type")
-        chart = pt.chart_exam_type_distribution(exam_type_data)
+        with col_exam:
+            st.markdown("#### Errors by Exam Type")
+            st.caption("Distribution across exam types")
+            exam_type_data = mt.count_by_field(filtered_errors, "exam_type")
+            chart = pt.chart_exam_type_distribution(exam_type_data)
+            if chart:
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("No exam type data yet.")
+
+        with col_pace:
+            st.markdown("#### Pace per Question")
+            st.caption("Average minutes per question by subject")
+            pace_data = mt.get_pace_by_subject(filtered_sessions)
+            chart = pt.chart_pace_by_subject(pace_data)
+            if chart:
+                st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("No study session data yet.")
+
+    # --- TAB 3: TIMELINE ---
+    with tab3:
+        st.markdown("### Timeline Analysis")
+
+        # Monthly Error Timeline
+        st.markdown("#### Errors Over Time")
+        st.caption("Monthly error count")
+        month_data = mt.aggregate_by_month_all(filtered_errors)
+        chart = pt.chart_timeline(month_data)
         if chart:
-            st.altair_chart(chart, width="stretch")
+            st.altair_chart(chart, use_container_width=True)
         else:
-            st.info("No exam type data yet.")
+            st.info("Not enough data for a timeline yet.")
 
-    with col_pace:
-        st.markdown(
-            "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
-            'font-weight:700;color:#0f172a;margin:0 0 0.4rem 0;">Pace per Question</h3>'
-            '<p style="font-size:0.9rem;color:#94a3b8;margin:0 0 1rem 0;">'
-            "Average minutes per question by subject</p>",
-            unsafe_allow_html=True,
-        )
-        pace_data = mt.get_pace_by_subject(filtered_sessions)
-        chart = pt.chart_pace_by_subject(pace_data)
+        st.divider()
+
+        # Mock Exam Score Trajectory
+        st.markdown("#### Mock Exam Performance Trajectory")
+        st.caption("Score evolution over time")
+        if mock_exams:
+            # Sort by date
+            sorted_exams = sorted(
+                mock_exams, key=lambda x: x.get("date_obj", date.today())
+            )
+
+            trajectory_data = []
+            for exam in sorted_exams:
+                trajectory_data.append(
+                    {
+                        "Date": exam.get("date", ""),
+                        "Score %": exam.get("score_percentage", 0),
+                        "Exam": exam.get("exam_name", "Unknown"),
+                    }
+                )
+
+            if trajectory_data:
+                import altair as alt
+
+                trajectory_chart = (
+                    alt.Chart(alt.Data(values=trajectory_data))
+                    .mark_line(point=True, strokeWidth=3)
+                    .encode(
+                        x=alt.X("Date:N", axis=alt.Axis(labelAngle=-45)),
+                        y=alt.Y("Score %:Q", scale=alt.Scale(domain=[0, 100])),
+                        tooltip=["Exam:N", "Date:N", "Score %:Q"],
+                    )
+                    .properties(height=350)
+                )
+                st.altair_chart(trajectory_chart, use_container_width=True)
+            else:
+                st.info("No mock exam data yet.")
+        else:
+            st.info("No mock exams logged yet.")
+
+        st.divider()
+
+        # Daily Study Trend
+        st.markdown("#### Daily Study Activity")
+        st.caption("Questions answered per day")
+        chart = pt.chart_daily_questions(filtered_sessions)
         if chart:
-            st.altair_chart(chart, width="stretch")
+            st.altair_chart(chart, use_container_width=True)
         else:
             st.info("No study session data yet.")
 
@@ -211,6 +329,69 @@ def render_telemetry_dashboard(
 # =========================================================================
 # PRIVATE HELPERS
 # =========================================================================
+
+
+def _render_ai_insights(filtered_errors: List[Dict[str, Any]]) -> None:
+    """
+    Render AI-powered insights at the top of the dashboard.
+
+    Shows actionable alerts based on error patterns:
+    - Fatigue warning if >25% of recent errors are fatigue-related
+    - Focus alert if a specific topic appears >3 times recently
+    """
+    if not filtered_errors:
+        return
+
+    # Get recent errors (last 30 days or last 20 errors, whichever is smaller)
+    recent_errors = filtered_errors[: min(20, len(filtered_errors))]
+
+    insights = []
+
+    # Check for fatigue pattern
+    fatigue_count = sum(1 for e in recent_errors if e.get("type") == "Fatigue")
+    fatigue_percentage = (
+        (fatigue_count / len(recent_errors) * 100) if recent_errors else 0
+    )
+
+    if fatigue_percentage > 25:
+        insights.append(
+            {
+                "type": "warning",
+                "icon": "",
+                "title": "Fatigue Alert",
+                "message": f"{fatigue_percentage:.0f}% of recent errors are fatigue-related. Consider taking breaks or shorter study sessions.",
+            }
+        )
+
+    # Check for recurring topic
+    topic_counts = {}
+    for error in recent_errors:
+        topic = error.get("topic", "")
+        if topic:
+            topic_counts[topic] = topic_counts.get(topic, 0) + 1
+
+    if topic_counts:
+        most_common_topic = max(topic_counts.items(), key=lambda x: x[1])
+        if most_common_topic[1] > 3:
+            insights.append(
+                {
+                    "type": "info",
+                    "icon": "",
+                    "title": "Focus Area Detected",
+                    "message": f"Topic '{most_common_topic[0]}' appears {most_common_topic[1]} times in recent errors. Consider focused review.",
+                }
+            )
+
+    # Render insights if any
+    if insights:
+        st.markdown("### AI Insights")
+        st.caption("Actionable recommendations based on your error patterns")
+
+        for insight in insights:
+            if insight["type"] == "warning":
+                st.warning(f"**{insight['title']}**: {insight['message']}")
+            elif insight["type"] == "info":
+                st.info(f"**{insight['title']}**: {insight['message']}")
 
 
 def _render_stat_cards(

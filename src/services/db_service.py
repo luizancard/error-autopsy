@@ -48,15 +48,90 @@ def _validate_input(subject: str, topic: str, error_type: str) -> None:
         raise ValidationError("Please fill in all required fields.")
 
 
+def log_bulk_errors(errors_list: List[Dict[str, Any]]) -> bool:
+    """
+    Log multiple errors in a single database transaction.
+
+    Args:
+        errors_list: List of error dictionaries with fields:
+            - user_id (required)
+            - subject (required)
+            - topic (required)
+            - type (required)
+            - description (optional)
+            - date (required)
+            - difficulty (optional, defaults to "Medium")
+            - exam_type (optional, defaults to "General")
+            - session_id (optional)
+            - mock_exam_id (optional)
+
+    Returns:
+        True if successful, False otherwise
+    """
+    if not supabase or not errors_list:
+        return False
+
+    try:
+        # Format and validate all errors before insertion
+        formatted_errors = []
+        for error in errors_list:
+            # Skip empty entries - check topic is valid
+            topic = error.get("topic") or ""
+            if not topic or not topic.strip():
+                continue
+
+            subject = error.get("subject") or ""
+            error_type = error.get("type") or ""
+
+            _validate_input(subject, topic, error_type)
+
+            payload = {
+                "user_id": error["user_id"],
+                "subject": subject.strip(),
+                "topic": topic.strip(),
+                "type": error_type,
+                "description": (error.get("description") or "").strip(),
+                "date": _format_date_iso(error.get("date", date.today())),
+                "difficulty": error.get("difficulty", "Medium"),
+                "exam_type": error.get("exam_type", "General"),
+            }
+
+            # Add optional fields if provided
+            if error.get("session_id"):
+                payload["session_id"] = error["session_id"]
+            if error.get("mock_exam_id"):
+                payload["mock_exam_id"] = error["mock_exam_id"]
+
+            formatted_errors.append(payload)
+
+        if formatted_errors:
+            supabase.table("errors").insert(formatted_errors).execute()
+
+        return True
+
+    except Exception as e:
+        logger.error(f"Error logging bulk errors: {e}")
+        st.error(f"Failed to save errors: {e}")
+        return False
+
+
 def load_data(user_id: str) -> List[Dict[str, Any]]:
-    """Carrega erros do usuário logado com segurança de tipos."""
+    """
+    Load user errors with optimized column selection and type safety.
+
+    Returns:
+        List of error dictionaries with parsed dates
+    """
     if not supabase:
         return []
 
     try:
+        # OPTIMIZED: Select only necessary columns
         response = (
             supabase.table("errors")
-            .select("*")
+            .select(
+                "id, user_id, subject, topic, type, description, date, difficulty, exam_type, session_id, mock_exam_id"
+            )
             .eq("user_id", user_id)
             .order("date", desc=True)
             .execute()
@@ -71,26 +146,35 @@ def load_data(user_id: str) -> List[Dict[str, Any]]:
         processed_data: List[Dict[str, Any]] = []
 
         for item in raw_data:
-            # Agora o linter sabe que 'item' é um Dict, então .copy() é válido
             clean_item = item.copy()
 
             # Ensure difficulty field exists (backward compatibility)
             if "difficulty" not in clean_item:
                 clean_item["difficulty"] = "Medium"
 
+            # TYPE SAFETY: Strict Date Parsing
             if clean_item.get("date"):
                 try:
-                    dt = datetime.strptime(str(clean_item["date"]), DATE_FORMAT_ISO)
-                    clean_item["date"] = dt.strftime(DATE_FORMAT_DISPLAY)
+                    if isinstance(clean_item["date"], str):
+                        dt = datetime.strptime(
+                            clean_item["date"], DATE_FORMAT_ISO
+                        ).date()
+                        clean_item["date_obj"] = dt
+                        clean_item["date"] = dt.strftime(DATE_FORMAT_DISPLAY)
+                    else:
+                        clean_item["date_obj"] = clean_item["date"]
                 except (ValueError, TypeError):
+                    clean_item["date_obj"] = date.today()
                     pass
+            else:
+                clean_item["date_obj"] = date.today()
 
             processed_data.append(clean_item)
 
         return processed_data
 
     except Exception as e:
-        logger.error(f"Erro ao carregar dados: {e}")
+        logger.error(f"Error loading data: {e}")
         return []
 
 
@@ -299,18 +383,21 @@ def create_study_session(
 
 def load_study_sessions(user_id: str) -> List[Dict[str, Any]]:
     """
-    Load all study sessions for a user.
+    Load study sessions with optimized column selection and type safety.
 
     Returns:
-        List of session dictionaries with computed metrics
+        List of session dictionaries with computed metrics and parsed dates
     """
     if not supabase:
         return []
 
     try:
+        # OPTIMIZED: Select only necessary columns
         response = (
             supabase.table("study_sessions")
-            .select("*")
+            .select(
+                "id, user_id, exam_type, subject, total_questions, correct_count, duration_minutes, date"
+            )
             .eq("user_id", user_id)
             .order("date", desc=True)
             .execute()
@@ -327,39 +414,39 @@ def load_study_sessions(user_id: str) -> List[Dict[str, Any]]:
         for item in raw_data:
             clean_item = item.copy()
 
-            # Format date for display
+            # Ensure required fields exist with defaults
+            total_q = float(clean_item.get("total_questions", 0))
+            correct = float(clean_item.get("correct_count", 0))
+            duration = float(clean_item.get("duration_minutes", 0))
+
+            clean_item["total_questions"] = total_q
+            clean_item["correct_count"] = correct
+            clean_item["duration_minutes"] = duration
+
+            # TYPE SAFETY: Strict Date Parsing
             if clean_item.get("date"):
                 try:
-                    dt = datetime.strptime(str(clean_item["date"]), DATE_FORMAT_ISO)
-                    clean_item["date"] = dt.strftime(DATE_FORMAT_DISPLAY)
+                    if isinstance(clean_item["date"], str):
+                        dt = datetime.strptime(
+                            clean_item["date"], DATE_FORMAT_ISO
+                        ).date()
+                        clean_item["date_obj"] = dt
+                        clean_item["date"] = dt.strftime(DATE_FORMAT_DISPLAY)
+                    else:
+                        clean_item["date_obj"] = clean_item["date"]
                 except (ValueError, TypeError):
+                    clean_item["date_obj"] = date.today()
                     pass
+            else:
+                clean_item["date_obj"] = date.today()
 
-            # Ensure computed fields exist (fallback if DB migration missing)
-            total_q = clean_item.get("total_questions", 0) or 0
-            correct = clean_item.get("correct_count", 0) or 0
-            duration = clean_item.get("duration_minutes", 0) or 0
-
-            if (
-                "accuracy_percentage" not in clean_item
-                or clean_item["accuracy_percentage"] is None
-            ):
-                clean_item["accuracy_percentage"] = (
-                    (correct / total_q * 100) if total_q > 0 else 0
-                )
-
-            if (
-                "pace_per_question" not in clean_item
-                or clean_item["pace_per_question"] is None
-            ):
-                clean_item["pace_per_question"] = (
-                    (duration / total_q) if total_q > 0 else 0
-                )
-
-            # Convert Decimal to float for JSON serialization
-            for key in ("accuracy_percentage", "pace_per_question", "duration_minutes"):
-                if key in clean_item and clean_item[key] is not None:
-                    clean_item[key] = float(clean_item[key])
+            # Computed Metrics
+            if total_q > 0:
+                clean_item["accuracy_percentage"] = (correct / total_q) * 100
+                clean_item["pace_per_question"] = duration / total_q
+            else:
+                clean_item["accuracy_percentage"] = 0.0
+                clean_item["pace_per_question"] = 0.0
 
             processed_data.append(clean_item)
 
@@ -509,18 +596,24 @@ def create_mock_exam(
 
 def load_mock_exams(user_id: str) -> List[Dict[str, Any]]:
     """
-    Load all mock exams for a user.
+    Load mock exams with optimized column selection and type safety.
+
+    CRITICAL: Includes breakdown_json column to prevent analysis page crashes.
 
     Returns:
-        List of mock exam dictionaries with computed percentages
+        List of mock exam dictionaries with computed percentages and parsed dates
     """
     if not supabase:
         return []
 
     try:
+        # OPTIMIZED: Select only necessary columns
+        # CRITICAL: breakdown_json is REQUIRED for analysis page
         response = (
             supabase.table("mock_exams")
-            .select("*")
+            .select(
+                "id, user_id, exam_name, exam_type, total_score, max_possible_score, date, breakdown_json, notes"
+            )
             .eq("user_id", user_id)
             .order("date", desc=True)
             .execute()
@@ -537,29 +630,32 @@ def load_mock_exams(user_id: str) -> List[Dict[str, Any]]:
         for item in raw_data:
             clean_item = item.copy()
 
-            # Format date for display
+            # TYPE SAFETY: Strict Date Parsing
             if clean_item.get("date"):
                 try:
-                    dt = datetime.strptime(str(clean_item["date"]), DATE_FORMAT_ISO)
-                    clean_item["date"] = dt.strftime(DATE_FORMAT_DISPLAY)
+                    if isinstance(clean_item["date"], str):
+                        dt = datetime.strptime(
+                            clean_item["date"], DATE_FORMAT_ISO
+                        ).date()
+                        clean_item["date_obj"] = dt
+                        clean_item["date"] = dt.strftime(DATE_FORMAT_DISPLAY)
+                    else:
+                        clean_item["date_obj"] = clean_item["date"]
                 except (ValueError, TypeError):
+                    clean_item["date_obj"] = date.today()
                     pass
+            else:
+                clean_item["date_obj"] = date.today()
 
-            # Ensure score_percentage exists (fallback if DB migration missing)
+            # Ensure score_percentage exists
             total_score = clean_item.get("total_score", 0) or 0
             max_score = clean_item.get("max_possible_score", 1) or 1
 
-            if (
-                "score_percentage" not in clean_item
-                or clean_item["score_percentage"] is None
-            ):
-                clean_item["score_percentage"] = (
-                    (float(total_score) / float(max_score) * 100)
-                    if max_score > 0
-                    else 0
-                )
+            clean_item["score_percentage"] = (
+                (float(total_score) / float(max_score) * 100) if max_score > 0 else 0
+            )
 
-            # Convert Decimal to float
+            # Convert Decimal to float for consistency
             for key in ("total_score", "max_possible_score", "score_percentage"):
                 if key in clean_item and clean_item[key] is not None:
                     clean_item[key] = float(clean_item[key])

@@ -130,10 +130,30 @@ if not st.session_state["user"]:
 current_user = st.session_state["user"]
 user_id = current_user.id
 
-# Load all user data
-errors = db.load_data(user_id)
-sessions = db.load_study_sessions(user_id)
-mock_exams = db.load_mock_exams(user_id)
+
+# Cached data loading functions to improve performance
+@st.cache_data(ttl=60, show_spinner=False)
+def load_user_errors(user_id: str) -> List[Dict[str, Any]]:
+    """Load user errors with 60-second cache."""
+    return db.load_data(user_id)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_user_sessions(user_id: str) -> List[Dict[str, Any]]:
+    """Load user study sessions with 60-second cache."""
+    return db.load_study_sessions(user_id)
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def load_user_mock_exams(user_id: str) -> List[Dict[str, Any]]:
+    """Load user mock exams with 60-second cache."""
+    return db.load_mock_exams(user_id)
+
+
+# Load all user data (with caching)
+errors = load_user_errors(user_id)
+sessions = load_user_sessions(user_id)
+mock_exams = load_user_mock_exams(user_id)
 
 
 # Page Renderers
