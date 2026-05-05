@@ -238,6 +238,7 @@ def update_errors(user_id: str, updated_records: List[Dict[str, Any]]) -> bool:
                     ),
                     "difficulty": rec.get("Difficulty")
                     or rec.get("difficulty", "Medium"),
+                    "exam_type": rec.get("Exam Type") or rec.get("exam_type", "General"),
                 }
             )
 

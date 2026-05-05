@@ -17,6 +17,7 @@ from config import (
     get_pace_benchmark,
     get_sections_for_exam,
     get_subjects_for_exam,
+    get_subjects_for_section,
 )
 from src.services import db_service as db
 
@@ -232,65 +233,120 @@ def render_error_logger_for_session(user_id: str, session_id: str) -> None:
         user_id: Current user's ID
         session_id: Session ID to link errors to
     """
-    st.markdown("### Log Errors from Session")
-    st.info("Add specific errors you made during this session (one at a time).")
+    st.markdown("### Bulk Error Entry (Spreadsheet Mode)")
+    st.info(
+        "Tip: Fill in the spreadsheet below. Leave 'Topic' blank for rows you want to skip. "
+        "Click 'Save All Errors' when done."
+    )
 
-    with st.form("session_error_form"):
-        col1, col2 = st.columns(2)
+    session_subject = st.session_state.get("last_session_subject", "Unknown")
+    session_exam_type = st.session_state.get("last_session_exam_type", "General")
+    errors_count = st.session_state.get("last_session_errors", 5)
+    if errors_count < 1:
+        errors_count = 5
 
-        with col1:
-            topic = st.text_input(
-                "Topic *",
-                help="Specific topic of the error (e.g., 'Quadratic Functions')",
-            )
-            error_type = st.selectbox("Error Type *", options=ERROR_TYPES, index=0)
+    template_data = {
+        "Topic": [""] * errors_count,
+        "Type": [ERROR_TYPES[0]] * errors_count,
+        "Difficulty": ["Medium"] * errors_count,
+        "Description": [""] * errors_count,
+    }
 
-        with col2:
-            difficulty = st.selectbox(
+    if "session_bulk_errors_df" not in st.session_state:
+        st.session_state.session_bulk_errors_df = pd.DataFrame(template_data)
+
+    edited_df = st.data_editor(
+        st.session_state.session_bulk_errors_df,
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "Topic": st.column_config.TextColumn(
+                "Topic",
+                help="Enter the specific topic (required)",
+                max_chars=200,
+                required=True,
+            ),
+            "Type": st.column_config.SelectboxColumn(
+                "Error Type",
+                help="Type of error",
+                options=ERROR_TYPES,
+                required=True,
+            ),
+            "Difficulty": st.column_config.SelectboxColumn(
                 "Difficulty",
+                help="Difficulty level",
                 options=DIFFICULTY_LEVELS,
-                index=1,  # Default to Medium
-            )
+                required=True,
+            ),
+            "Description": st.column_config.TextColumn(
+                "Description",
+                help="Optional notes",
+                max_chars=500,
+            ),
+        },
+        hide_index=True,
+        key="session_error_bulk_editor",
+    )
 
-        description = st.text_area(
-            "Description (optional)", help="What went wrong? What did you learn?"
-        )
+    col1, col2 = st.columns([1, 1])
 
-        submitted = st.form_submit_button("Add Error", width="stretch")
+    with col1:
+        if st.button(
+            "Save All Errors",
+            type="primary",
+            use_container_width=True,
+            key="save_session_errors_btn",
+        ):
+            valid_errors = []
+            for _, row in edited_df.iterrows():
+                if row["Topic"] and row["Topic"].strip():
+                    error_entry = {
+                        "user_id": user_id,
+                        "subject": session_subject,
+                        "topic": row["Topic"].strip(),
+                        "type": row["Type"],
+                        "difficulty": row["Difficulty"],
+                        "description": row["Description"]
+                        if pd.notna(row["Description"])
+                        else "",
+                        "date": date.today(),
+                        "exam_type": session_exam_type,
+                        "session_id": session_id,
+                    }
+                    valid_errors.append(error_entry)
 
-        if submitted:
-            if not topic.strip():
-                st.error("Please enter a topic.")
+            if not valid_errors:
+                st.warning(
+                    "No valid errors to save. Please fill in at least the 'Topic' field for each error."
+                )
             else:
-                session_subject = st.session_state.get(
-                    "last_session_subject", "Unknown"
-                )
-                session_exam_type = st.session_state.get(
-                    "last_session_exam_type", "General"
-                )
-                success = db.log_error_with_session(
-                    user_id=user_id,
-                    subject=session_subject,
-                    topic=topic.strip(),
-                    error_type=error_type,
-                    description=description,
-                    date_val=date.today(),
-                    difficulty=difficulty,
-                    exam_type=session_exam_type,
-                    session_id=session_id,
-                )
+                with st.spinner(f"Saving {len(valid_errors)} error(s)..."):
+                    success = db.log_bulk_errors(valid_errors)
 
                 if success:
-                    st.success("Error logged!")
+                    st.success(f"Successfully logged {len(valid_errors)} error(s)!")
                     st.cache_data.clear()
+                    st.session_state.session_bulk_errors_df = pd.DataFrame(
+                        template_data
+                    )
+                    st.session_state["show_error_form"] = False
+                    st.session_state.pop("last_session_id", None)
+                    st.session_state.pop("last_session_subject", None)
+                    st.session_state.pop("last_session_exam_type", None)
+                    st.session_state.pop("last_session_errors", None)
                     st.rerun()
+                else:
+                    st.error("Failed to save errors. Please try again.")
 
-    if st.button("Done Logging Errors"):
-        st.session_state["show_error_form"] = False
-        st.session_state.pop("last_session_id", None)
-        st.session_state.pop("last_session_subject", None)
-        st.session_state.pop("last_session_exam_type", None)
-        st.rerun()
+    with col2:
+        if st.button("Cancel", use_container_width=True, key="cancel_session_btn"):
+            st.session_state.pop("session_bulk_errors_df", None)
+            st.session_state["show_error_form"] = False
+            st.session_state.pop("last_session_id", None)
+            st.session_state.pop("last_session_subject", None)
+            st.session_state.pop("last_session_exam_type", None)
+            st.session_state.pop("last_session_errors", None)
+            st.rerun()
 
 
 def render_simulado_logger(user_id: str) -> None:
@@ -533,6 +589,12 @@ def render_simulado_logger(user_id: str) -> None:
                             if not sec["is_essay"] and val < mx:
                                 has_errors = True
                                 break
+                    else:
+                        if (
+                            stored_form_state["total_score"]
+                            < stored_form_state["max_possible_score"]
+                        ):
+                            has_errors = True
 
                     if has_errors:
                         st.session_state["mock_exam_id"] = exam_id
@@ -568,7 +630,7 @@ def render_simulado_logger(user_id: str) -> None:
     # Show success message after form submission
     if st.session_state.get("simulado_form_submitted", False):
         st.success(
-            "✅ Mock exam logged successfully! You can now log errors from this exam."
+            "Mock exam logged successfully! You can now log errors from this exam."
         )
 
         col1, col2 = st.columns([3, 1])
@@ -592,37 +654,35 @@ def _render_mock_exam_error_prompt() -> None:
     exam_type = st.session_state.get("mock_exam_type", "General")
     sections = get_sections_for_exam(exam_type)
 
-    if not sections or not breakdown:
+    if sections and not breakdown:
         st.session_state["show_mock_error_prompt"] = False
         return
 
-    # Show sections that had wrong answers
-    sections_with_errors = []
-    for key, sec in sections.items():
-        sec_data = breakdown.get(key, {})
-        if isinstance(sec_data, dict) and not sec["is_essay"]:
-            val = sec_data.get("score", 0)
-            mx = sec_data.get("max", 0)
-            wrong = mx - val
-            if wrong > 0:
-                sections_with_errors.append(
-                    {
-                        "key": key,
-                        "label": sec["label"],
-                        "subject": sec["subject"],
-                        "wrong": wrong,
-                    }
-                )
+    if sections:
+        # Show sections that had wrong answers
+        sections_with_errors = []
+        for key, sec in sections.items():
+            sec_data = breakdown.get(key, {})
+            if isinstance(sec_data, dict) and not sec["is_essay"]:
+                val = sec_data.get("score", 0)
+                mx = sec_data.get("max", 0)
+                wrong = mx - val
+                if wrong > 0:
+                    sections_with_errors.append(
+                        {
+                            "key": key,
+                            "label": sec["label"],
+                            "subject": sec["subject"],
+                            "wrong": wrong,
+                        }
+                    )
 
-    if not sections_with_errors:
-        st.info("No wrong answers detected in objective sections.")
-        st.session_state["show_mock_error_prompt"] = False
-        return
+        if not sections_with_errors:
+            st.info("No wrong answers detected in objective sections.")
+            st.session_state["show_mock_error_prompt"] = False
+            return
 
-    st.info(
-        "You had wrong answers in some sections. "
-        "Log specific errors to track your weak points."
-    )
+    st.info("You had wrong answers. Log specific errors to track your weak points.")
 
     col1, col2 = st.columns([1, 1])
 
@@ -644,86 +704,159 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
 
     COMPLETELY REWRITTEN: Uses st.data_editor for bulk entry instead of one-by-one forms.
     """
-    st.markdown("### 📊 Bulk Error Entry (Spreadsheet Mode)")
+    st.markdown("### Bulk Error Entry (Spreadsheet Mode)")
 
     mock_exam_id = st.session_state.get("mock_exam_id")
     exam_type = st.session_state.get("mock_exam_type", "General")
-    breakdown = st.session_state.get("mock_exam_breakdown", {})
     exam_date = st.session_state.get("mock_exam_date", date.today())
+    breakdown = st.session_state.get("mock_exam_breakdown", {})
     sections = get_sections_for_exam(exam_type)
 
     if not mock_exam_id:
         _clear_mock_exam_state()
         return
 
-    # Get available subjects for this exam type
-    available_subjects = get_subjects_for_exam(exam_type)
-    default_subject = available_subjects[0] if available_subjects else "Mathematics"
-
-    # Create empty DataFrame template with 5 rows (pre-filled Subject column)
-    template_data = {
-        "Subject": [default_subject] * 5,
-        "Topic": [""] * 5,
-        "Type": [ERROR_TYPES[0]] * 5,
-        "Difficulty": ["Medium"] * 5,
-        "Description": [""] * 5,
-    }
-
-    # Initialize or retrieve existing DataFrame from session state
-    if "bulk_errors_df" not in st.session_state:
-        st.session_state.bulk_errors_df = pd.DataFrame(template_data)
-
     st.info(
-        "💡 **Tip:** Fill in the spreadsheet below. Leave 'Topic' blank for rows you want to skip. "
+        "Tip: Fill in the spreadsheet below. Leave 'Topic' blank for rows you want to skip. "
         "Click 'Save All Errors' when done."
     )
 
-    # Configure the data editor with dropdowns
-    edited_df = st.data_editor(
-        st.session_state.bulk_errors_df,
-        num_rows="dynamic",
-        use_container_width=True,
-        column_config={
-            "Subject": st.column_config.SelectboxColumn(
-                "Subject",
-                help="Select the subject",
-                options=available_subjects,
-                required=True,
-            ),
-            "Topic": st.column_config.TextColumn(
-                "Topic",
-                help="Enter the specific topic (required)",
-                max_chars=200,
-                required=True,
-            ),
-            "Type": st.column_config.SelectboxColumn(
-                "Error Type",
-                help="Type of error",
-                options=ERROR_TYPES,
-                required=True,
-            ),
-            "Difficulty": st.column_config.SelectboxColumn(
-                "Difficulty",
-                help="Difficulty level",
-                options=DIFFICULTY_LEVELS,
-                required=True,
-            ),
-            "Description": st.column_config.TextColumn(
-                "Description",
-                help="Optional notes",
-                max_chars=500,
-            ),
-        },
-        hide_index=True,
-        key="error_bulk_editor",
-    )
+    sections_with_errors = []
+    if sections and breakdown:
+        for key, sec in sections.items():
+            sec_data = breakdown.get(key, {})
+            if isinstance(sec_data, dict) and not sec["is_essay"]:
+                val = sec_data.get("score", 0)
+                mx = sec_data.get("max", 0)
+                wrong = int(mx - val)
+                if wrong > 0:
+                    sections_with_errors.append((key, sec, wrong))
+
+    edited_dfs = {}
+
+    if sections_with_errors:
+        tabs = st.tabs(
+            [f"{sec['label']} ({wrong})" for _, sec, wrong in sections_with_errors]
+        )
+
+        for idx, (key, sec, wrong) in enumerate(sections_with_errors):
+            available_subjects = get_subjects_for_section(exam_type, key)
+            default_subject = (
+                available_subjects[0] if available_subjects else "Mathematics"
+            )
+
+            num_rows = wrong if wrong > 0 else 5
+
+            df_key = f"bulk_errors_df_{key}"
+            if df_key not in st.session_state:
+                template_data = {
+                    "Subject": [default_subject] * num_rows,
+                    "Topic": [""] * num_rows,
+                    "Type": [ERROR_TYPES[0]] * num_rows,
+                    "Difficulty": ["Medium"] * num_rows,
+                    "Description": [""] * num_rows,
+                }
+                st.session_state[df_key] = pd.DataFrame(template_data)
+
+            with tabs[idx]:
+                edited_dfs[key] = st.data_editor(
+                    st.session_state[df_key],
+                    num_rows="dynamic",
+                    use_container_width=True,
+                    column_config={
+                        "Subject": st.column_config.SelectboxColumn(
+                            "Subject",
+                            help="Select the subject",
+                            options=available_subjects,
+                            required=True,
+                        ),
+                        "Topic": st.column_config.TextColumn(
+                            "Topic",
+                            help="Enter the specific topic (required)",
+                            max_chars=200,
+                            required=True,
+                        ),
+                        "Type": st.column_config.SelectboxColumn(
+                            "Error Type",
+                            help="Type of error",
+                            options=ERROR_TYPES,
+                            required=True,
+                        ),
+                        "Difficulty": st.column_config.SelectboxColumn(
+                            "Difficulty",
+                            help="Difficulty level",
+                            options=DIFFICULTY_LEVELS,
+                            required=True,
+                        ),
+                        "Description": st.column_config.TextColumn(
+                            "Description",
+                            help="Optional notes",
+                            max_chars=500,
+                        ),
+                    },
+                    hide_index=True,
+                    key=f"error_bulk_editor_{key}",
+                )
+    else:
+        available_subjects = get_subjects_for_exam(exam_type)
+        default_subject = available_subjects[0] if available_subjects else "Mathematics"
+
+        df_key = "bulk_errors_df_general"
+        if df_key not in st.session_state:
+            template_data = {
+                "Subject": [default_subject] * 5,
+                "Topic": [""] * 5,
+                "Type": [ERROR_TYPES[0]] * 5,
+                "Difficulty": ["Medium"] * 5,
+                "Description": [""] * 5,
+            }
+            st.session_state[df_key] = pd.DataFrame(template_data)
+
+        edited_dfs["general"] = st.data_editor(
+            st.session_state[df_key],
+            num_rows="dynamic",
+            use_container_width=True,
+            column_config={
+                "Subject": st.column_config.SelectboxColumn(
+                    "Subject",
+                    help="Select the subject",
+                    options=available_subjects,
+                    required=True,
+                ),
+                "Topic": st.column_config.TextColumn(
+                    "Topic",
+                    help="Enter the specific topic (required)",
+                    max_chars=200,
+                    required=True,
+                ),
+                "Type": st.column_config.SelectboxColumn(
+                    "Error Type",
+                    help="Type of error",
+                    options=ERROR_TYPES,
+                    required=True,
+                ),
+                "Difficulty": st.column_config.SelectboxColumn(
+                    "Difficulty",
+                    help="Difficulty level",
+                    options=DIFFICULTY_LEVELS,
+                    required=True,
+                ),
+                "Description": st.column_config.TextColumn(
+                    "Description",
+                    help="Optional notes",
+                    max_chars=500,
+                ),
+            },
+            hide_index=True,
+            key="error_bulk_editor_general",
+        )
 
     # Action buttons
-    col1, col2, col3 = st.columns([2, 1, 1])
+    col1, col2 = st.columns([1, 1])
 
     with col1:
         if st.button(
-            "💾 Save All Errors",
+            "Save All Errors",
             type="primary",
             use_container_width=True,
             key="save_bulk_errors_btn",
@@ -731,26 +864,27 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
             # Filter out empty rows (where Topic is missing)
             valid_errors = []
 
-            for _, row in edited_df.iterrows():
-                if row["Topic"] and row["Topic"].strip():
-                    error_entry = {
-                        "user_id": user_id,
-                        "subject": row["Subject"],
-                        "topic": row["Topic"].strip(),
-                        "type": row["Type"],
-                        "difficulty": row["Difficulty"],
-                        "description": row["Description"]
-                        if pd.notna(row["Description"])
-                        else "",
-                        "date": exam_date,
-                        "exam_type": exam_type,
-                        "mock_exam_id": mock_exam_id,
-                    }
-                    valid_errors.append(error_entry)
+            for key, df in edited_dfs.items():
+                for _, row in df.iterrows():
+                    if row["Topic"] and row["Topic"].strip():
+                        error_entry = {
+                            "user_id": user_id,
+                            "subject": row["Subject"],
+                            "topic": row["Topic"].strip(),
+                            "type": row["Type"],
+                            "difficulty": row["Difficulty"],
+                            "description": row["Description"]
+                            if pd.notna(row["Description"])
+                            else "",
+                            "date": exam_date,
+                            "exam_type": exam_type,
+                            "mock_exam_id": mock_exam_id,
+                        }
+                        valid_errors.append(error_entry)
 
             if not valid_errors:
                 st.warning(
-                    "⚠️ No valid errors to save. Please fill in at least the 'Topic' field for each error."
+                    "No valid errors to save. Please fill in at least the 'Topic' field for each error."
                 )
             else:
                 # Call the new bulk insert function with loading indicator
@@ -758,38 +892,22 @@ def _render_mock_exam_error_logger(user_id: str) -> None:
                     success = db.log_bulk_errors(valid_errors)
 
                 if success:
-                    st.success(f"✅ Successfully logged {len(valid_errors)} error(s)!")
+                    st.success(f"Successfully logged {len(valid_errors)} error(s)!")
                     # Clear cache to reload fresh data
                     st.cache_data.clear()
-                    # Clear the DataFrame for next use
-                    st.session_state.bulk_errors_df = pd.DataFrame(template_data)
+
+                    for key in edited_dfs.keys():
+                        st.session_state.pop(f"bulk_errors_df_{key}", None)
+
                     _clear_mock_exam_state()
                     st.rerun()
                 else:
-                    st.error("❌ Failed to save errors. Please try again.")
+                    st.error("Failed to save errors. Please try again.")
 
     with col2:
-        if st.button(
-            "🔄 Add More Rows", use_container_width=True, key="add_more_rows_btn"
-        ):
-            # Add 3 more empty rows using current edited data
-            new_rows = pd.DataFrame(
-                {
-                    "Subject": [default_subject] * 3,
-                    "Topic": [""] * 3,
-                    "Type": [ERROR_TYPES[0]] * 3,
-                    "Difficulty": ["Medium"] * 3,
-                    "Description": [""] * 3,
-                }
-            )
-            st.session_state.bulk_errors_df = pd.concat(
-                [edited_df, new_rows], ignore_index=True
-            )
-            st.rerun()
-
-    with col3:
-        if st.button("❌ Cancel", use_container_width=True, key="cancel_bulk_btn"):
-            st.session_state.bulk_errors_df = pd.DataFrame(template_data)
+        if st.button("Cancel", use_container_width=True, key="cancel_bulk_btn"):
+            for key in edited_dfs.keys():
+                st.session_state.pop(f"bulk_errors_df_{key}", None)
             _clear_mock_exam_state()
             st.rerun()
 

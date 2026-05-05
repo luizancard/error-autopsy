@@ -177,7 +177,7 @@ def render_mock_analysis() -> None:
 
 def render_history() -> None:
     """Render the history page with import/export functionality."""
-    st.title("History")
+    st.title(("History"))
 
     # Export/Import buttons
     col1, col2, col3 = st.columns([2, 1, 1])
@@ -262,7 +262,7 @@ def render_history() -> None:
                         st.session_state["show_import"] = False
                         st.rerun()
 
-            if st.button("Cancel"):
+            if st.button(("Cancel")):
                 st.session_state["show_import"] = False
                 st.rerun()
 
@@ -309,7 +309,7 @@ def render_history() -> None:
 
                 with col1:
                     if st.button(
-                        "Save Changes",
+                        ("Save Changes"),
                         width="stretch",
                         type="primary",
                         key="save_errors",
@@ -327,11 +327,12 @@ def render_history() -> None:
                                 edited_df_to_save.to_dict("records"),
                             )
                             if db.update_errors(user_id, updated_records):
-                                st.success("Changes saved successfully!")
+                                st.success(("Changes saved successfully!"))
 
+                        st.cache_data.clear()
                         st.rerun()
         else:
-            st.info("No records match your filters.")
+            st.info(("No records match your filters."))
 
     with tab2:
         st.markdown(
@@ -362,7 +363,7 @@ def render_history() -> None:
                 )
 
                 if st.button(
-                    "Save Changes",
+                    ("Save Changes"),
                     width="stretch",
                     type="primary",
                     key="save_sessions",
@@ -385,6 +386,7 @@ def render_history() -> None:
                         if db.update_sessions(user_id, updated_sessions):
                             st.success("Changes saved successfully!")
 
+                    st.cache_data.clear()
                     st.rerun()
         else:
             st.info("No study sessions found. Log some sessions to see them here!")
@@ -405,10 +407,10 @@ with st.sidebar:
     )
 
     st.markdown('<div class="sidebar-menu">', unsafe_allow_html=True)
-    ui.render_menu_button("Dashboard", "Dashboard", ICON_DASHBOARD)
-    ui.render_menu_button("Log Session", "Log Session", ICON_LOG_ERROR)
-    ui.render_menu_button("Mock Analysis", "Mock Analysis", ICON_MOCK_ANALYSIS)
-    ui.render_menu_button("History", "History", ICON_HISTORY)
+    ui.render_menu_button(("Dashboard"), "Dashboard", ICON_DASHBOARD)
+    ui.render_menu_button(("Log Session"), "Log Session", ICON_LOG_ERROR)
+    ui.render_menu_button(("Mock Analysis"), "Mock Analysis", ICON_MOCK_ANALYSIS)
+    ui.render_menu_button(("History"), "History", ICON_HISTORY)
     st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown("---")
@@ -429,7 +431,7 @@ with st.sidebar:
     """,
         unsafe_allow_html=True,
     )
-    if st.button("Log Out", width="stretch", type="secondary"):
+    if st.button(("Log Out"), width="stretch", type="secondary"):
         auth_service.sign_out()
         st.session_state["user"] = None
         st.session_state.pop("access_token", None)

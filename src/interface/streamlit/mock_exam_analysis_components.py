@@ -12,6 +12,8 @@ Provides a dedicated analysis dashboard for mock exams including:
 
 from typing import Any, Dict, List
 
+import pandas as pd
+
 import streamlit as st
 from config import AVOIDABLE_ERROR_TYPES, EXAM_SECTION_DEFS, Colors
 from src.analysis import metrics as mt
@@ -51,7 +53,7 @@ def render_mock_exam_analysis(
     )
 
     selected_type = st.selectbox(
-        "Exam Type",
+        ("Exam Type"),
         options=["All"] + exam_types_with_data,
         key="mock_analysis_type",
         label_visibility="collapsed",
@@ -122,7 +124,7 @@ def render_mock_exam_analysis(
 
     # Exam history
     st.markdown("---")
-    _render_exam_history(filtered_exams)
+    _render_exam_history(filtered_exams, errors)
 
 
 def _render_kpi_cards(exams: List[Dict[str, Any]]) -> None:
@@ -133,7 +135,7 @@ def _render_kpi_cards(exams: List[Dict[str, Any]]) -> None:
 
     with col1:
         ui.render_metric_card(
-            label="Total Exams",
+            label=("Total Exams"),
             value=stats["total_exams"],
             icon_char="!",
             icon_bg=Colors.CARD_TOTAL_BG,
@@ -142,7 +144,7 @@ def _render_kpi_cards(exams: List[Dict[str, Any]]) -> None:
 
     with col2:
         ui.render_metric_card(
-            label="Best Score",
+            label=("Best Score"),
             value=f"{stats['best_score']:.1f}%",
             icon_char="!",
             icon_bg="#e7f5ef",
@@ -151,7 +153,7 @@ def _render_kpi_cards(exams: List[Dict[str, Any]]) -> None:
 
     with col3:
         ui.render_metric_card(
-            label="Latest Score",
+            label=("Latest Score"),
             value=f"{stats['latest_score']:.1f}%",
             icon_char="!",
             icon_bg=Colors.CARD_ERROR_BG,
@@ -524,7 +526,9 @@ def _render_error_breakdown(
                     st.markdown(line)
 
 
-def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
+def _render_exam_history(
+    exams: List[Dict[str, Any]], all_errors: List[Dict[str, Any]]
+) -> None:
     """Render expandable exam history list with edit/delete capabilities."""
     st.markdown(
         "<h3 style=\"font-family:'Helvetica Neue',sans-serif;font-size:1.2rem;"
@@ -547,13 +551,13 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
             col1, col2, col3 = st.columns(3)
             with col1:
                 st.metric(
-                    "Score",
+                    ("Score"),
                     f"{exam.get('total_score', 0):.0f}/{exam.get('max_possible_score', 0):.0f}",
                 )
             with col2:
-                st.metric("Percentage", f"{pct:.1f}%")
+                st.metric(("Percentage"), f"{pct:.1f}%")
             with col3:
-                st.metric("Type", exam_type)
+                st.metric(("Type"), exam_type)
 
             # Show section breakdown if available
             breakdown = exam.get("breakdown_json") or {}
@@ -587,16 +591,25 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
 
             # Edit/Delete buttons
             st.divider()
-            col_edit, col_delete = st.columns(2)
+            col_edit, col_manage, col_delete = st.columns([1, 1, 1])
 
             with col_edit:
-                if st.button("Edit Exam", key=f"edit_{exam_id}", width="stretch"):
+                if st.button(("Edit Exam"), key=f"edit_{exam_id}", width="stretch"):
                     st.session_state[f"editing_{exam_id}"] = True
+                    st.session_state.pop(f"managing_errors_{exam_id}", None)
+                    st.rerun()
+
+            with col_manage:
+                if st.button(
+                    ("Manage Errors"), key=f"manage_errs_{exam_id}", width="stretch"
+                ):
+                    st.session_state[f"managing_errors_{exam_id}"] = True
+                    st.session_state.pop(f"editing_{exam_id}", None)
                     st.rerun()
 
             with col_delete:
                 if st.button(
-                    "Delete Exam",
+                    ("Delete Exam"),
                     key=f"delete_{exam_id}",
                     width="stretch",
                     type="secondary",
@@ -617,7 +630,7 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
 
                 with col_yes:
                     if st.button(
-                        "Yes, Delete",
+                        ("Yes, Delete"),
                         key=f"confirm_yes_{exam_id}",
                         width="stretch",
                         type="primary",
@@ -626,18 +639,26 @@ def _render_exam_history(exams: List[Dict[str, Any]]) -> None:
 
                         user_id = st.session_state["user"].id
                         if db.delete_mock_exam(exam_id, user_id):
-                            st.success("Exam deleted successfully!")
+                            st.success(("Exam deleted successfully!"))
                             st.session_state.pop(f"confirm_delete_{exam_id}", None)
+                            st.cache_data.clear()
                             st.rerun()
                         else:
-                            st.error("Failed to delete exam. Please try again.")
+                            st.error(("Failed to delete exam. Please try again."))
 
                 with col_no:
                     if st.button(
-                        "Cancel", key=f"confirm_no_{exam_id}", width="stretch"
+                        ("Cancel"), key=f"confirm_no_{exam_id}", width="stretch"
                     ):
                         st.session_state.pop(f"confirm_delete_{exam_id}", None)
                         st.rerun()
+
+            # Show manage errors form
+            if st.session_state.get(f"managing_errors_{exam_id}", False):
+                exam_errors = [
+                    e for e in all_errors if str(e.get("mock_exam_id")) == str(exam_id)
+                ]
+                _render_manage_errors(exam, exam_errors)
 
 
 def _render_edit_form(exam: Dict[str, Any]) -> None:
@@ -649,8 +670,8 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
     st.markdown("**Edit Exam Details:**")
 
     with st.form(f"edit_form_{exam_id}"):
-        new_name = st.text_input("Exam Name", value=exam.get("exam_name", ""))
-        new_notes = st.text_area("Notes", value=exam.get("notes", ""))
+        new_name = st.text_input(("Exam Name"), value=exam.get("exam_name", ""))
+        new_notes = st.text_area(("Notes"), value=exam.get("notes", ""))
 
         # Get section definitions if exam has structured sections
         from config import get_sections_for_exam
@@ -703,13 +724,13 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
             # Show updated percentage
             if new_max_score > 0:
                 new_pct = (new_total_score / new_max_score) * 100
-                st.metric("Updated Percentage", f"{new_pct:.1f}%")
+                st.metric(("Updated Percentage"), f"{new_pct:.1f}%")
         else:
             # For exams without sections, allow editing total score directly
             col1, col2 = st.columns(2)
             with col1:
                 new_total_score = st.number_input(
-                    "Total Score",
+                    ("Total Score"),
                     min_value=0.0,
                     value=float(exam.get("total_score", 0)),
                     step=1.0,
@@ -717,7 +738,7 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
                 )
             with col2:
                 new_max_score = st.number_input(
-                    "Max Score",
+                    ("Max Score"),
                     min_value=1.0,
                     value=float(exam.get("max_possible_score", 100)),
                     step=1.0,
@@ -752,13 +773,166 @@ def _render_edit_form(exam: Dict[str, Any]) -> None:
                     user_id=user_id,
                     updates=updates,
                 ):
-                    st.success("Changes saved successfully!")
+                    st.success(("Changes saved successfully!"))
                     st.session_state.pop(f"editing_{exam_id}", None)
+                    st.cache_data.clear()
                     st.rerun()
                 else:
-                    st.error("Failed to save changes. Please try again.")
+                    st.error(("Failed to save changes. Please try again."))
 
         with col_cancel:
             if st.form_submit_button("Cancel", width="stretch"):
                 st.session_state.pop(f"editing_{exam_id}", None)
                 st.rerun()
+
+
+def _render_manage_errors(
+    exam: Dict[str, Any], exam_errors: List[Dict[str, Any]]
+) -> None:
+    """Render inline manage errors interface for a specific mock exam."""
+    from config import DIFFICULTY_LEVELS, ERROR_TYPES, get_subjects_for_exam
+    from src.services import db_service as db
+
+    exam_id = exam.get("id")
+    exam_type = exam.get("exam_type", "General")
+    user_id = st.session_state["user"].id
+    exam_date = exam.get("date", "")
+
+    st.markdown("**Manage Exam Errors:**")
+    st.info(
+        (
+            "Edit existing errors below, or scroll down and add new rows to log new errors. Select rows and press Delete/Backspace to remove them."
+        )
+    )
+
+    available_subjects = get_subjects_for_exam(exam_type)
+    default_subject = available_subjects[0] if available_subjects else "Mathematics"
+
+    if len(exam_errors) == 0:
+        df = pd.DataFrame(
+            {
+                "id": [""],
+                "Subject": [(default_subject)],
+                "Topic": [""],
+                "Error Type": [ERROR_TYPES[0]],
+                "Difficulty": [("Medium")],
+                "Description": [""],
+            }
+        )
+    else:
+        # Map DB columns to UI columns
+        mapped_errors = []
+        for e in exam_errors:
+            mapped_errors.append(
+                {
+                    "id": e.get("id", ""),
+                    "Subject": e.get("subject", default_subject),
+                    "Topic": e.get("topic", ""),
+                    "Error Type": e.get("type", ERROR_TYPES[0]),
+                    "Difficulty": e.get("difficulty", "Medium"),
+                    "Description": e.get("description", ""),
+                }
+            )
+        df = pd.DataFrame(mapped_errors)
+
+    edited_df = st.data_editor(
+        df,
+        num_rows="dynamic",
+        use_container_width=True,
+        column_config={
+            "id": None,  # Hide ID column
+            "Subject": st.column_config.SelectboxColumn(
+                "Subject", options=(available_subjects), required=True
+            ),
+            "Topic": st.column_config.TextColumn("Topic", required=True),
+            "Error Type": st.column_config.SelectboxColumn(
+                "Error Type", options=(ERROR_TYPES), required=True
+            ),
+            "Difficulty": st.column_config.SelectboxColumn(
+                "Difficulty", options=(DIFFICULTY_LEVELS), required=True
+            ),
+            "Description": st.column_config.TextColumn("Description"),
+        },
+        key=f"editor_manage_errs_{exam_id}",
+    )
+
+    col_save, col_cancel = st.columns(2)
+
+    save_clicked = False
+    with col_save:
+        if st.button(
+            "Save Errors", type="primary", key=f"save_errs_{exam_id}", width="stretch"
+        ):
+            save_clicked = True
+
+    with col_cancel:
+        if st.button(("Cancel"), key=f"cancel_errs_{exam_id}", width="stretch"):
+            st.session_state.pop(f"managing_errors_{exam_id}", None)
+            st.rerun()
+
+    if save_clicked:
+        original_ids = {str(e["id"]) for e in exam_errors if e.get("id")}
+
+        new_records = []
+        updated_records = []
+        edited_ids = set()
+
+        for _, row in edited_df.iterrows():
+            # Skip completely empty rows
+            if not row.get("Topic") or not str(row["Topic"]).strip():
+                continue
+
+            row_id = str(row.get("id", "")).strip()
+
+            # Handle description None/nan
+            desc = ""
+            if pd.notna(row.get("Description")):
+                desc_str = str(row.get("Description")).strip()
+                if desc_str not in ("nan", "None", ""):
+                    desc = desc_str
+
+            record = {
+                "user_id": user_id,
+                "subject": row["Subject"],
+                "topic": str(row["Topic"]).strip(),
+                "type": row["Error Type"],
+                "difficulty": row["Difficulty"],
+                "description": desc,
+                "date": exam_date,
+                "exam_type": exam_type,
+                "mock_exam_id": exam_id,
+            }
+
+            if row_id and row_id not in ("nan", "None", ""):
+                # Edited existing record
+                record["id"] = row_id
+                updated_records.append(record)
+                edited_ids.add(row_id)
+            else:
+                # New record
+                new_records.append(record)
+
+        deleted_ids = original_ids - edited_ids
+
+        success = True
+
+        with st.spinner("Saving changes..."):
+            if deleted_ids:
+                if not db.delete_errors(user_id, list(deleted_ids)):
+                    success = False
+
+            if updated_records:
+                if not db.update_errors(user_id, updated_records):
+                    success = False
+
+            if new_records:
+                if not db.log_bulk_errors(new_records):
+                    success = False
+
+        if success:
+            st.success(_("Errors managed successfully!"))
+            st.session_state.pop(f"managing_errors_{exam_id}", None)
+            st.cache_data.clear()
+            st.rerun()
+        else:
+            st.error(_("There was an issue saving some changes."))

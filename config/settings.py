@@ -280,7 +280,7 @@ FUVEST_SECTIONS: Dict[str, Dict[str, Any]] = {
     "fase1": {
         "label": "Phase 1 (General Knowledge)",
         "min": 0,
-        "max": 90,
+        "max": 80,
         "subject": "General",
         "is_essay": False,
     },
@@ -288,7 +288,7 @@ FUVEST_SECTIONS: Dict[str, Dict[str, Any]] = {
 
 # Maps each ENEM section key to the specific subjects available for error logging
 ENEM_SECTION_SUBJECTS: Dict[str, List[str]] = {
-    "linguagens": ["Portuguese", "Literature"],
+    "linguagens": ["Portuguese", "English", "Spanish"],
     "ciencias_humanas": ["History", "Geography", "Philosophy", "Sociology"],
     "matematica": ["Mathematics"],
     "ciencias_natureza": ["Physics", "Biology", "Chemistry"],
