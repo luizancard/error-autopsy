@@ -69,6 +69,9 @@ EXAM_SUBJECTS: Dict[str, List[str]] = {
         "Portuguese",
         "Literature",
         "English",
+        "Sociology",
+        "Philosophy",
+        "Interdisciplinary",
     ],
     "ENEM": [
         "Portuguese",
