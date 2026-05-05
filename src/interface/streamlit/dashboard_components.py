@@ -82,13 +82,7 @@ def render_telemetry_dashboard(
             s for s in filtered_sessions if s.get("exam_type") in exam_type_filter
         ]
 
-    # ======================================================================
-    # AI INSIGHTS - TOP OF DASHBOARD
-    # ======================================================================
 
-    _render_ai_insights(filtered_errors)
-
-    st.divider()
 
     # ======================================================================
     # STAT CARDS ROW
@@ -331,67 +325,6 @@ def render_telemetry_dashboard(
 # =========================================================================
 
 
-def _render_ai_insights(filtered_errors: List[Dict[str, Any]]) -> None:
-    """
-    Render AI-powered insights at the top of the dashboard.
-
-    Shows actionable alerts based on error patterns:
-    - Fatigue warning if >25% of recent errors are fatigue-related
-    - Focus alert if a specific topic appears >3 times recently
-    """
-    if not filtered_errors:
-        return
-
-    # Get recent errors (last 30 days or last 20 errors, whichever is smaller)
-    recent_errors = filtered_errors[: min(20, len(filtered_errors))]
-
-    insights = []
-
-    # Check for fatigue pattern
-    fatigue_count = sum(1 for e in recent_errors if e.get("type") == "Fatigue")
-    fatigue_percentage = (
-        (fatigue_count / len(recent_errors) * 100) if recent_errors else 0
-    )
-
-    if fatigue_percentage > 25:
-        insights.append(
-            {
-                "type": "warning",
-                "icon": "",
-                "title": "Fatigue Alert",
-                "message": f"{fatigue_percentage:.0f}% of recent errors are fatigue-related. Consider taking breaks or shorter study sessions.",
-            }
-        )
-
-    # Check for recurring topic
-    topic_counts = {}
-    for error in recent_errors:
-        topic = error.get("topic", "")
-        if topic:
-            topic_counts[topic] = topic_counts.get(topic, 0) + 1
-
-    if topic_counts:
-        most_common_topic = max(topic_counts.items(), key=lambda x: x[1])
-        if most_common_topic[1] > 3:
-            insights.append(
-                {
-                    "type": "info",
-                    "icon": "",
-                    "title": "Focus Area Detected",
-                    "message": f"Topic '{most_common_topic[0]}' appears {most_common_topic[1]} times in recent errors. Consider focused review.",
-                }
-            )
-
-    # Render insights if any
-    if insights:
-        st.markdown("### AI Insights")
-        st.caption("Actionable recommendations based on your error patterns")
-
-        for insight in insights:
-            if insight["type"] == "warning":
-                st.warning(f"**{insight['title']}**: {insight['message']}")
-            elif insight["type"] == "info":
-                st.info(f"**{insight['title']}**: {insight['message']}")
 
 
 def _render_stat_cards(

@@ -930,9 +930,9 @@ def _render_manage_errors(
                     success = False
 
         if success:
-            st.success(_("Errors managed successfully!"))
+            st.success("Errors managed successfully!")
             st.session_state.pop(f"managing_errors_{exam_id}", None)
             st.cache_data.clear()
             st.rerun()
         else:
-            st.error(_("There was an issue saving some changes."))
+            st.error("There was an issue saving some changes.")
